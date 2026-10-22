@@ -184,10 +184,16 @@ export function createWebDesktop(env = {}) {
     if (result.detailRequest) result.detailRequest = { stem: { id: result.detailRequest.stem.id }, start: result.detailRequest.start, end: result.detailRequest.end };
     return JSON.parse(JSON.stringify(result));
   }
+  // A write started while the page closes still completes (keepalive allows bodies up to 64 KB).
   async function writeProject(doc) {
-    await request(`/userdata/${projectKey(doc.id)}?overwrite=true&full_info=false`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(doc) }, 'ComfyUI user data');
+    const body = JSON.stringify(doc);
+    await request(`/userdata/${projectKey(doc.id)}?overwrite=true&full_info=false`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: body.length < 60000 }, 'ComfyUI user data');
     remember('stemstudio.lastProject', doc.id);
+    // Also on the server, so another address (127.0.0.1 or localhost), tab or browser reopens the same project.
+    if (serverLast !== doc.id) { serverLast = doc.id; void request(`/userdata/${encodeURIComponent('stemstudio/last.json')}?overwrite=true&full_info=false`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: doc.id }) }, 'ComfyUI user data').catch(() => {}); }
   }
+  let serverLast = '';
+  async function readServerLast() { try { const value = await json(`/userdata/${encodeURIComponent('stemstudio/last.json')}`, undefined, 'ComfyUI user data'); return ID.test(value?.id || '') ? value.id : ''; } catch { return ''; } }
   async function readProject(id) {
     if (!ID.test(id)) throw Error('Invalid project id.');
     return validateProject(await json(`/userdata/${projectKey(id)}`, undefined, 'ComfyUI user data'));
@@ -199,10 +205,10 @@ export function createWebDesktop(env = {}) {
     return docs.filter(Boolean).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).slice(0, 20);
   }
   const info = () => ({ id: current.id, name: current.name, path: projectPath(current.id), updatedAt: current.updatedAt });
-  async function create(name) {
+  async function create(name, extra = []) {
     const now = new Date().toISOString();
     current = { format: 'stem-studio-project', version: 1, id: uuid(), name: nameOf(name), createdAt: now, updatedAt: now, source: null, runs: [], view: {} };
-    lastInput = ''; await writeProject(current); return hydrate();
+    lastInput = ''; await writeProject(current); return hydrate(extra);
   }
   async function hydrate(extra = []) {
     outputs.clear(); state = idle(); const warnings = [...extra];
@@ -225,12 +231,21 @@ export function createWebDesktop(env = {}) {
     }
     return { info: info(), source, runs, view: doc.view || {}, job: state, warnings };
   }
+  // Opens the project that was open last. A project that cannot be opened is reported and the next newest is tried; a new
+  // empty project is made only when there is nothing to open at all, never silently on top of existing work.
   async function boot() {
-    const last = recall('stemstudio.lastProject');
-    if (last && ID.test(last)) { try { current = await readProject(last); lastInput = ''; return hydrate(); } catch { /* fall through to the newest project */ } }
-    const [newest] = await listProjects();
-    if (newest) { try { current = await readProject(newest.id); lastInput = ''; return hydrate(); } catch { /* create a new one */ } }
-    return create('Untitled project');
+    const warnings = [];
+    const last = recall('stemstudio.lastProject') || await readServerLast();
+    if (last && ID.test(last)) {
+      try { current = await readProject(last); lastInput = ''; return await hydrate(); }
+      catch (error) { warnings.push(`The last project could not be opened (${error.message}).`); console.error('Stem Studio project', last, error); }
+    }
+    for (const item of await listProjects()) {
+      if (item.id === last) continue;
+      try { current = await readProject(item.id); lastInput = ''; return await hydrate([...warnings, `Opened "${item.name}" instead. Other projects are under Projects.`]); }
+      catch (error) { warnings.push(`"${item.name}" could not be opened (${error.message}).`); console.error('Stem Studio project', item.id, error); }
+    }
+    return create('Untitled project', warnings);
   }
   let queue = Promise.resolve();
   const serial = fn => { const next = queue.then(fn); queue = next.catch(() => {}); return next; };
@@ -648,7 +663,7 @@ export function browserEnvironment(win = globalThis) {
       for (const file of files) download(await file.load(), file.filename);
       return `${files.length} downloaded files`;
     },
-    zoom: factor => { document.documentElement.style.zoom = String(factor); },
+    zoom: factor => { document.documentElement.style.zoom = String(factor); document.documentElement.style.setProperty('--page-zoom', String(factor)); },
     onPageHide: callback => { const listener = () => callback(); win.addEventListener('pagehide', listener); return () => win.removeEventListener('pagehide', listener); },
   };
 }

@@ -567,7 +567,7 @@ function App() {
         </>}
         <div className="settings-status" role="status" aria-live="polite" aria-busy={busy}>
           <span data-tip={connection?.comfyDetail || 'Not checked yet'}><i className={`status-dot ${connection ? connection.comfy ? 'green' : 'unavailable' : ''}`}/>ComfyUI <em>{busy ? 'Checking…' : connection ? connection.comfy ? 'Reachable' : 'Unavailable' : 'Not checked'}</em></span>
-          <span data-tip={connection?.proxyDetail || 'Not checked yet'}><i className={`status-dot ${connection ? connection.proxy ? 'green' : 'unavailable' : ''}`}/>Proxy <em>{busy ? 'Checking…' : connection ? connection.proxy ? 'Reachable' : 'Unavailable' : 'Not checked'}</em></span>
+          {!nodePack && <span data-tip={connection?.proxyDetail || 'Not checked yet'}><i className={`status-dot ${connection ? connection.proxy ? 'green' : 'unavailable' : ''}`}/>Proxy <em>{busy ? 'Checking…' : connection ? connection.proxy ? 'Reachable' : 'Unavailable' : 'Not checked'}</em></span>}
         </div>
         {(error || (connection && !(connection.comfy && connection.proxy))) && <p className="settings-note error-text" role="alert">{error || connection?.message}</p>}
         {!nodePack && <>
@@ -581,10 +581,10 @@ function App() {
           {proxyState?.detail && <details className="proxy-guide"><summary>Details</summary><pre>{proxyState.detail}</pre></details>}
         </div>
         </>}
-        <footer>
+        {nodePack ? <footer><span/><span><button className="secondary-button" onClick={verify} disabled={busy}>{busy ? <LoaderCircle size={13} className="spin"/> : <Link2 size={13}/>} Check</button><button className="primary-button" onClick={() => setSettings(false)}>Done</button></span></footer> : <footer>
           <button className="quiet-button" onClick={() => setSettings(false)} disabled={busy || saving || proxyWorking}><ArrowLeft size={12}/> Continue without saving</button>
           <span><button className="secondary-button" onClick={verify} disabled={busy || saving || proxyWorking}>{busy ? <LoaderCircle size={13} className="spin"/> : <Link2 size={13}/>} Check</button><button className="primary-button" onClick={saveConnection} disabled={busy || saving || proxyWorking}>{saving ? <LoaderCircle size={13} className="spin"/> : <Save size={13}/>} Save</button></span>
-        </footer>
+        </footer>}
       </section>
     </div>}
   </div>;

@@ -452,3 +452,39 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .timeline-context-menu{max-height:calc(100vh - 8px);overflow-y:auto;scrollbar-width:thin}
 
 .timeline-context-menu{max-height:calc(100vh - 8px);overflow-y:auto;scrollbar-width:thin}
+
+/* Dialogs fit the window at any page zoom: under CSS zoom a vh length is scaled too, so it is divided by the zoom. */
+.connection-modal,.connection-modal.shortcuts-modal{max-height:calc((100vh - 40px) / var(--page-zoom,1))}
+.timeline-context-menu{max-height:calc((100vh - 8px) / var(--page-zoom,1))}
+/* Models page: ten cards on one screen */
+.shortcuts-modal.is-wide{width:min(1240px,100%)}
+.model-info-note{margin:2px 0 8px;font-size:10px}
+.model-cards{grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:8px}
+.model-card{padding:9px 11px}
+.model-card>header{align-items:flex-start;text-align:left;margin-bottom:6px;padding:0;border:0;min-height:0}
+.model-card>header strong{font-size:11.5px}
+.model-card>header small{font-size:9.5px}
+.model-card dl{gap:2px}
+.model-card dl div{grid-template-columns:50px minmax(0,1fr);gap:6px;font-size:9.5px}
+.model-card-note{font-size:9px;margin-top:4px}
+.model-measured{margin-top:7px;padding-top:6px;gap:2px 9px;font-size:9px}
+
+/* Connection dialog in the node pack: model packs as a clear list */
+.pack-list{margin:10px 0 8px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#ffffff05}
+.pack-list>header{display:flex;flex-direction:column;gap:2px;margin:0 0 8px;padding:0;border:0;min-height:0;align-items:flex-start}
+.pack-list>header strong{font-size:12px;color:var(--text)}
+.pack-list>header small{font-size:10px;color:var(--dim)}
+.pack-list ul{list-style:none;margin:0;padding:0}
+.pack-list li{display:grid;grid-template-columns:minmax(0,1fr) 62px 104px;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)}
+.pack-name{display:flex;flex-direction:column;gap:1px;min-width:0}
+.pack-name b{font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pack-name small{font-size:9.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pack-size{font:10.5px Consolas,monospace;color:var(--muted);text-align:right}
+.pack-state{display:flex;justify-content:flex-end}
+.pack-state em{display:inline-flex;align-items:center;gap:5px;font-style:normal;font-size:10.5px;color:var(--yellow)}
+.pack-state .secondary-button{padding:5px 10px;font-size:10.5px;min-height:0;gap:5px}
+.pack-consent{display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;padding-top:10px;border-top:1px solid var(--border);font-size:10.5px;line-height:1.45;color:var(--muted)}
+.pack-consent input{width:14px;height:14px;margin:1px 0 0;padding:0;accent-color:#f2ff59;flex-shrink:0}
+.pack-status{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:10.5px;color:var(--muted)}
+.pack-status>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.settings-modal footer{align-items:center}

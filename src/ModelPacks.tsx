@@ -3,7 +3,7 @@ import { Download, LoaderCircle, Check } from 'lucide-react';
 import type { ModelPackState } from './types';
 
 const working = (state: ModelPackState | null) => !!state && !['idle', 'complete', 'failed', 'cancelled'].includes(state.phase);
-const size = (bytes: number) => bytes >= 1 << 30 ? `${(bytes / (1 << 30)).toFixed(1)} GB` : `${Math.round(bytes / (1 << 20))} MB`;
+const size = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
 
 // Node pack mode only: downloads the open-weight model packs into ComfyUI's models/audio_separation folder.
 export function ModelPacks({ onChange }: { onChange?: () => void }) {
@@ -22,15 +22,16 @@ export function ModelPacks({ onChange }: { onChange?: () => void }) {
     try { setError(''); setState(await window.desktop!.prepareModels!([id])); } catch (cause) { setError(String(cause)); }
   }
   if (!state && !error) return null;
-  return <div className="settings-proxy model-packs">
-    <span className="field-label">Model packs · open weights</span>
-    {state?.packs.map(pack => <div key={pack.id} className="settings-proxy-row">
-      <span style={{ flex: 1 }}>{pack.name} <small className="subtle">{size(pack.size)}</small></span>
-      {pack.ready ? <span className="subtle"><Check size={12}/> Ready</span> : <button className="secondary-button" disabled={!consent || running} onClick={() => void download(pack.id)}><Download size={13}/> Download</button>}
-    </div>)}
-    <label className="proxy-auto"><input type="checkbox" checked={consent} disabled={running} onChange={event => setConsent(event.target.checked)}/> I accept each pack's license (see the README) and approve these downloads.</label>
-    {state?.message && <p className="settings-note" role="status">{running && <LoaderCircle size={11} className="spin"/>} {state.message}{state.detail ? ` · ${state.detail}` : ''}</p>}
-    {running && <button className="quiet-button" onClick={() => void window.desktop?.cancelModels?.()}>Cancel</button>}
+  const missing = state?.packs.some(pack => !pack.ready);
+  return <section className="pack-list" aria-label="Model packs">
+    <header><strong>Model packs</strong><small>Open weights, saved in ComfyUI/models/audio_separation</small></header>
+    <ul>{state?.packs.map(pack => <li key={pack.id} className={pack.ready ? 'is-ready' : ''}>
+      <span className="pack-name"><b>{pack.name}</b>{pack.license && <small>{pack.license}</small>}</span>
+      <span className="pack-size">{size(pack.size)}</span>
+      <span className="pack-state">{pack.ready ? <em><Check size={12}/> Ready</em> : <button className="secondary-button" disabled={!consent || running} onClick={() => void download(pack.id)}><Download size={12}/> Download</button>}</span>
+    </li>)}</ul>
+    {missing && <label className="pack-consent"><input type="checkbox" checked={consent} disabled={running} onChange={event => setConsent(event.target.checked)}/> I accept each pack's license (see the README) and approve these downloads.</label>}
+    {(running || state?.message) && <div className="pack-status" role="status">{running && <LoaderCircle size={12} className="spin"/>}<span>{state?.message}{state?.detail ? ` · ${state.detail}` : ''}</span>{running && <button className="quiet-button" onClick={() => void window.desktop?.cancelModels?.()}>Cancel</button>}</div>}
     {error && <p className="settings-note error-text" role="alert">{error}</p>}
-  </div>;
+  </section>;
 }

@@ -349,3 +349,20 @@ test('a renamed channel keeps its ComfyUI file and its brush kind in the saved p
   assert.equal(restored.runs[0].stems[0].label, 'Voice over');
   assert.equal(restored.runs[0].stems[0].missing, false);
 });
+
+test('reload reopens the last project from the server note, and an unreadable project is reported instead of being replaced by an empty one', async () => {
+  const server = fakeComfy(); const first = make(server);
+  const a = await first.desktop.getProject();
+  const b = await first.desktop.projectAction('new', { projectId: a.info.id, runs: [], view: {} }, 'Second');
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.ok(server.userdata.has('stemstudio/last.json'), 'the last project is also written on the server');
+  const fresh = make(server); // a browser with no local memory
+  assert.equal((await fresh.desktop.getProject()).info.id, b.info.id);
+  server.userdata.set(`stemstudio/projects/${b.info.id}.json`, '{broken');
+  const next = await make(server).desktop.getProject();
+  assert.equal(next.info.id, a.info.id);
+  assert.match(next.warnings.join(' '), /last project could not be opened/); assert.match(next.warnings.join(' '), /Opened ".*" instead/);
+  server.userdata.set(`stemstudio/projects/${a.info.id}.json`, '{broken');
+  const empty = await make(server).desktop.getProject();
+  assert.notEqual(empty.info.id, a.info.id); assert.match(empty.warnings.join(' '), /could not be opened/);
+});

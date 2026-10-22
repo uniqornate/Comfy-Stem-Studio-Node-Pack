@@ -29,6 +29,8 @@
   Follow-up 0.13.4 (page zoom): in the browser the layout scale is CSS zoom, so popups placed from pointer coordinates landed far from the pointer (tooltips below it, context menus off screen). src/page-zoom.mjs gives the zoom; tooltips, channel/take/delete menus, the preview menu and the floating preview drag and resize convert screen pixels to the zoomed units, and context menus are measured and moved back inside the window (scrollbar if the window is shorter than the menu). Not run in a browser.
   Next: User verifies.
 
+  Follow-up 0.13.5: (1) dialogs and context menus fit the window at any layout zoom (--page-zoom is set with the CSS zoom; max-height is divided by it); the Models page shows ten compact cards on one screen. (2) Connection dialog in the node pack: model packs are a clear list (name, license, size, state), the consent box shows only while something is missing, the Proxy status is hidden and the footer is Check and Done. (3) Projects: reload could silently make an empty 'Untitled project' when the last project failed to open, hiding existing work. Boot now reports the reason, tries the other projects, and creates a new empty one only when none can be opened; the last project is also written to userdata/stemstudio/last.json so another address or browser reopens it; project writes use keepalive so the last autosave survives a page close. The earlier project with runs was intact on disk (reopen it from Projects). Not run in a browser.
+
 ### W-20261022-02: Help panel, rename, brush icon (ported from desktop 0.12.11)
 
 - Agent: Claude Sonnet 5.5 | Provider: Anthropic | Surface: Claude Code desktop
