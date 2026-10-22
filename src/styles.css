@@ -569,5 +569,8 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 /* Preview behind the timeline (arrange view): the video panel is fitted to the timeline's rectangle and sits under it */
 .studio-workspace .floating-preview.is-backdrop{z-index:0;cursor:default;pointer-events:none;border-radius:12px}
 .studio-workspace .floating-preview.is-backdrop .preview-stage video{object-fit:cover}
-.multitrack.is-backdrop .track-controls,.multitrack.is-backdrop .track-ruler-label{background:#302936f2}
+/* Over the backdrop video the header column fades out to the right; the top cell also fades upward, so nothing ends in a hard edge */
+.multitrack.is-backdrop .track-controls{background:linear-gradient(90deg,#302936f2 0%,#302936cc 60%,#30293633 100%)}
+.multitrack.is-backdrop .track-ruler-label{background:none}
+.multitrack.is-backdrop .track-ruler-label::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(90deg,#302936f2 0%,#302936b3 60%,#30293626 100%);-webkit-mask-image:linear-gradient(to top,#000 35%,transparent 100%);mask-image:linear-gradient(to top,#000 35%,transparent 100%)}
 .waveform-knob.is-video{box-shadow:0 0 0 2px #7ee08a99}
