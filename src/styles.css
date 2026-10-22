@@ -574,3 +574,9 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 .multitrack.is-backdrop .track-ruler-label{background:none}
 .multitrack.is-backdrop .track-ruler-label::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(90deg,#302936f2 0%,#302936b3 60%,#30293626 100%);-webkit-mask-image:linear-gradient(to top,#000 35%,transparent 100%);mask-image:linear-gradient(to top,#000 35%,transparent 100%)}
 .waveform-knob.is-video{box-shadow:0 0 0 2px #7ee08a99}
+
+/* Brush mode: the region being picked is painted into the skeleton row only, with a light stripe animation (transform only) */
+.brush-ghost .ghost-paint{position:absolute;top:0;bottom:0;z-index:1;overflow:hidden;pointer-events:none;background:color-mix(in srgb,var(--track) 24%,transparent);border-left:1px solid var(--track);border-right:1px solid var(--track)}
+.brush-ghost .ghost-paint::after{content:'';position:absolute;top:0;bottom:0;left:-44px;right:-44px;background:repeating-linear-gradient(115deg,transparent 0 11px,color-mix(in srgb,var(--track) 30%,transparent) 11px 22px);animation:ghost-paint 800ms linear infinite;will-change:transform}
+@keyframes ghost-paint{to{transform:translateX(22px)}}
+@media(prefers-reduced-motion:reduce){.brush-ghost .ghost-paint::after{animation:none}}
