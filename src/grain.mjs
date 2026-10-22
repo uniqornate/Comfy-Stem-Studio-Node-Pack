@@ -2,13 +2,13 @@
 // animation moves the layer on the compositor, so it costs no repaint.
 export const GRAIN_TILE = 256;
 export const BLENDS = ['normal', 'overlay', 'soft-light', 'multiply', 'screen'];
-export const GRAIN_DEFAULTS = { on: true, opacity: 0.05, size: 1, amount: 0.7, mono: true, blend: 'normal', animate: false, fps: 8, seed: 1 };
+export const GRAIN_DEFAULTS = { on: true, opacity: 0.265, size: 0.5, amount: 0.7, mono: true, blend: 'overlay', animate: false, fps: 8, seed: 56 };
 const clamp = (value, low, high, fallback) => Number.isFinite(value) ? Math.min(high, Math.max(low, value)) : fallback;
 export function cleanGrain(value) {
   const v = value && typeof value === 'object' ? value : {};
   return {
     on: v.on !== false, opacity: clamp(v.opacity, 0, 0.3, GRAIN_DEFAULTS.opacity), size: clamp(v.size, 0.5, 4, GRAIN_DEFAULTS.size), amount: clamp(v.amount, 0, 1, GRAIN_DEFAULTS.amount),
-    mono: v.mono !== false, blend: BLENDS.includes(v.blend) ? v.blend : GRAIN_DEFAULTS.blend, animate: v.animate === true, fps: Math.round(clamp(v.fps, 1, 24, GRAIN_DEFAULTS.fps)), seed: Math.round(clamp(v.seed, 1, 9999, 1)),
+    mono: v.mono !== false, blend: BLENDS.includes(v.blend) ? v.blend : GRAIN_DEFAULTS.blend, animate: v.animate === true, fps: Math.round(clamp(v.fps, 1, 24, GRAIN_DEFAULTS.fps)), seed: Math.round(clamp(v.seed, 1, 9999, GRAIN_DEFAULTS.seed)),
   };
 }
 // Small seeded generator, so the same seed always gives the same grain.
