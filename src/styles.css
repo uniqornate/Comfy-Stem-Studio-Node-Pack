@@ -244,16 +244,37 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .batch-list li.is-failed{color:#ffb5b5}
 .batch-list .batch-more{color:var(--dim)}
 .batch-dot{width:5px;height:5px;margin:0 3.5px;border-radius:50%;background:var(--dim);flex-shrink:0}
-.shortcuts-modal{width:min(640px,100%)}
-.shortcut-groups{columns:2;column-gap:28px}
-.shortcut-groups section{break-inside:avoid;margin:0 0 14px}
-.shortcut-groups h3{margin:0 0 6px;font-size:9px;letter-spacing:1.4px;color:var(--dim);font-weight:600;text-transform:uppercase}
-.shortcut-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:10px;padding:5px 0;border-top:1px solid var(--border);font-size:11px}
+.shortcuts-modal{width:min(680px,100%);max-height:90vh;overflow-y:auto;scrollbar-width:none}
+.shortcuts-modal::-webkit-scrollbar{display:none}
+.shortcuts-modal.is-wide{width:min(900px,100%)}
+.shortcuts-modal>header{display:flex;align-items:center;gap:12px}
+.shortcuts-modal>header .mode-tabs{margin-left:auto}
+.shortcut-groups{columns:2;column-gap:14px;margin-top:6px}
+.shortcut-group{--tone:#c2bfb9;break-inside:avoid;margin:0 0 14px;padding:10px 12px 6px;border-radius:12px;background:color-mix(in srgb,var(--tone) 8%,transparent);border:1px solid color-mix(in srgb,var(--tone) 18%,transparent)}
+.shortcut-group h3{margin:0 0 6px;font-size:9px;letter-spacing:1.4px;color:color-mix(in srgb,var(--tone) 78%,#918a96);font-weight:700;text-transform:uppercase}
+.shortcut-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:10px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--tone) 14%,transparent);font-size:11px}
 .shortcut-keys{display:flex;flex-wrap:wrap;align-items:center;gap:4px 5px}
 .shortcut-keys i{font-style:normal;color:var(--dim);font-size:10px}
 .shortcut-combo{display:inline-flex;gap:3px;white-space:nowrap}
 .shortcut-text{color:var(--muted);line-height:1.35}
-.shortcut-groups kbd{padding:2px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;background:var(--wash);color:var(--text);font:10px Consolas,monospace}
+.shortcut-group kbd{padding:2px 6px;border:1px solid color-mix(in srgb,var(--tone) 35%,transparent);border-bottom-width:2px;border-radius:5px;background:color-mix(in srgb,var(--tone) 10%,#211927);color:var(--text);font:10px Consolas,monospace}
+.model-info-note{margin:4px 0 12px;font-size:10.5px;line-height:1.5;color:var(--muted)}
+.model-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.model-card{--tone:#c2bfb9;padding:11px 13px;border-radius:12px;background:color-mix(in srgb,var(--tone) 8%,transparent);border:1px solid color-mix(in srgb,var(--tone) 18%,transparent);min-width:0}
+.model-card>header{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.model-card>header strong{font-size:12px;color:var(--text)}
+.model-card>header small{font-size:10px;color:color-mix(in srgb,var(--tone) 75%,#918a96)}
+.model-card dl{margin:0;display:grid;gap:3px}
+.model-card dl div{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;font-size:10.5px}
+.model-card dt{color:var(--dim)}
+.model-card dd{margin:0;color:var(--muted);min-width:0}
+.model-card-note{margin:6px 0 0;font-size:9.5px;color:var(--dim);line-height:1.4}
+.model-measured{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:9px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--tone) 16%,transparent);font:10px Consolas,monospace;color:var(--text)}
+.model-measured b{color:color-mix(in srgb,var(--tone) 80%,#918a96);font-weight:600;margin-right:3px}
+.model-measured.is-empty{color:var(--dim);font:10px 'Segoe UI',sans-serif}
+@media(max-width:760px){.shortcut-groups{columns:1}.model-cards{grid-template-columns:1fr}}
+.track-kind{flex-shrink:0;color:var(--track);opacity:.9}
+.track-rename{flex:1;min-width:0;height:20px;padding:0 6px;border:1px solid var(--track);border-radius:4px;background:#211927;color:var(--text);font:inherit;font-size:11px;font-weight:600}
 .model-suggestion{max-width:100%;margin:-2px 0 10px;padding:5px 9px;gap:6px;border:1px solid #f2ff5944;border-radius:8px;background:#f2ff5910;color:var(--yellow);font-size:10px}
 .model-suggestion span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .batch-link{width:100%;justify-content:center;margin-top:6px;font-size:10.5px}

@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { AudioWaveform, Film, Layers, Music4, ScanSearch, Sparkles } from 'lucide-react';
 import { MODELS } from './models.mjs';
 
-const icons: Record<string, ReactElement> = { mrx: <Film size={20}/>, bandit: <Music4 size={20}/>, sfc: <AudioWaveform size={20}/>, music6: <Layers size={20}/>, sam: <Sparkles size={20}/>, uss: <ScanSearch size={20}/> };
+const icons: Record<string, ReactElement> = { mrx: <Film size={20}/>, bandit: <Layers size={20}/>, sfc: <AudioWaveform size={20}/>, music6: <Music4 size={20}/>, sam: <Sparkles size={20}/>, uss: <ScanSearch size={20}/> };
 export function ModelPicker({ value, onChange, disabled, installed }: { value: string; onChange: (id: string) => void; disabled: boolean; installed: Record<string, boolean | undefined> }) {
   return <div className="model-picker" role="radiogroup" aria-label="Separation model">
     {MODELS.map(model => {

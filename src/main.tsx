@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AudioLines, ArrowLeft, Keyboard, Lightbulb, Music4, ScanSearch, SlidersHorizontal, Sparkles, ArrowUpRight, Check, Clapperboard, FolderOpen, Link2, LoaderCircle, Plus, Save, Settings2, ShieldCheck, Play, Pause, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { AudioLines, ArrowLeft, CircleHelp, Lightbulb, Music4, ScanSearch, SlidersHorizontal, Sparkles, ArrowUpRight, Check, Clapperboard, FolderOpen, Link2, LoaderCircle, Plus, Save, Settings2, ShieldCheck, Play, Pause, ZoomIn, ZoomOut, X } from 'lucide-react';
 import type { Connection, Profile, Source, ProxyState, Engine, StemJob, ExportState, Stem, SAMGuidance, ProjectInfo, ProjectSession, ProjectPayload, TimelineView, ReferenceAudio } from './types';
 import './styles.css';
 const comfyWordmark = new URL('./assets/comfy/comfy-wordmark.svg', import.meta.url).href;
@@ -27,6 +27,7 @@ import { normalizeGuidance } from './sam-guidance.mjs';
 import { installWebDesktop } from './web-desktop.mjs';
 import { ModelPacks } from './ModelPacks';
 import { ShortcutsPanel } from './ShortcutsPanel';
+import { startTracker, sampleTracker, finishTracker, readUsage, remember, type Tracker, type Usage } from './usage.mjs';
 import { BatchPanel } from './BatchPanel';
 import { BrushModal } from './BrushModal';
 import { clampFloat, resizeFloat } from './float-geometry.mjs';
@@ -109,6 +110,9 @@ function App() {
   const [brushRegion, setBrushRegion] = useState<{ start: number; end: number } | null>(null);
   const [previewMenu, setPreviewMenu] = useState<{ x: number; y: number } | null>(null);
   const [externalPreview, setExternalPreview] = useState(false);
+  // Peak memory and CPU of every model, measured on this PC while its jobs run and shown on the Models page.
+  const [usage, setUsage] = useState<Record<string, Usage>>(() => { try { return readUsage(localStorage.getItem('modelUsage')); } catch { return {}; } });
+  const usageKey = useRef(''), jobPhase = useRef('idle');
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
   const [suggestion, setSuggestion] = useState<{ model: string; text: string; detail: string } | null>(null);
   const [sam, setSAM] = useSAMStatus(profile, samVariant);
@@ -315,6 +319,21 @@ function App() {
   const connected = connection?.comfy && connection.proxy;
   const proxyWorking = preparingProxy || ['checking', 'downloading', 'installing', 'starting'].includes(proxyState?.phase || '');
   const jobBusy = !['idle', 'complete', 'failed', 'cancelled'].includes(job.phase);
+  jobPhase.current = job.phase;
+  useEffect(() => {
+    if (!jobBusy || !window.desktop) return;
+    let alive = true, timer: ReturnType<typeof setTimeout>, tracker: Tracker | null = null;
+    const poll = async () => {
+      try { const sample = await window.desktop!.resources(profile); if (sample?.online) tracker = tracker ? sampleTracker(tracker, sample) : startTracker(sample); } catch { /* telemetry is optional */ }
+      if (alive) timer = setTimeout(poll, 1500);
+    };
+    void poll();
+    return () => {
+      alive = false; clearTimeout(timer);
+      const key = usageKey.current;
+      if (tracker && key && jobPhase.current === 'complete') setUsage(previous => { const next = remember(previous, key, finishTracker(tracker!)); try { localStorage.setItem('modelUsage', JSON.stringify(next)); } catch { /* ignore */ } return next; });
+    };
+  }, [jobBusy]);
   const canSeparate = !!window.desktop && !!source && !source.missing && !!connected && !!engine?.ready && !jobBusy && !projectBusy;
   const wholeRange = { start: 0, end: playback.duration };
   let sourceGuidanceError = '';
@@ -329,6 +348,7 @@ function App() {
   const separationHint = !source ? 'Choose a source first.' : !connected ? 'Check your ComfyUI and proxy connection first.' : !engine?.ready ? 'Audio engine is not ready. Check connection settings or retry setup.' : modelKind === 'prompt' ? (!samReady ? 'Prepare SAM Audio first.' : sourceGuidanceError || 'SAM Audio pulls the described sound from the whole source.') : modelKind === 'music' ? (!musicReady ? 'Download the music model first.' : 'Six stereo music stems. The original source stays untouched.') : modelKind === 'uss' ? (!ussReady ? 'USS models are not installed, or the integration is out of date.' : target === 'All' ? 'Every detected sound class becomes its own channel.' : `Pulls "${target}" out of the whole source.`) : 'Three mono stems. The original source stays untouched.';
   async function separate() {
     if (!window.desktop || !source || !canSeparate || !modelReady) return;
+    usageKey.current = modelKind === 'stems' ? model : modelKind === 'music' ? 'music6' : modelKind === 'uss' ? 'uss' : 'sam';
     setError(''); setSaveNotice('');
     try {
       if (modelKind === 'prompt') {
@@ -345,6 +365,7 @@ function App() {
     if (!window.desktop || !canSeparate || !currentRun?.runId) return;
     if (!shownStems.some(stem => stem.id === request.stem.id)) return;
     setActiveOperation('uss'); setDetailRequest(request); setDetailMode(mode === 'sam' ? 'sam' : 'uss'); setTarget(chosen); setLastGuidance(guidance); setDetailOpen(false);
+    usageKey.current = mode;
     setError(''); setSaveNotice('');
     const base = { range: { start: request.start, end: request.end }, parentId: request.stem.id, rootRunId: currentRun.runId, edits: timelines.current[currentRun.runId]?.edits?.[request.stem.id] };
     try {
@@ -386,11 +407,16 @@ function App() {
   async function runBrush(prompt: string, choice: { model: 'small' | 'medium' | 'mmaudio'; video: boolean }) {
     const region = brushRegion;
     if (!window.desktop || !source || !region || !canSeparate) return;
-    setBrushRegion(null); transport.clearSelection(); setError(''); setSaveNotice('');
+    setBrushRegion(null); transport.clearSelection(); usageKey.current = `brush-${choice.model}`; setError(''); setSaveNotice('');
     try { setJob(await window.desktop.separateStems(profile, source.url, { mode: 'brush', target: prompt, rootRunId: currentRun?.runId, videoUrl: choice.video ? source.url : undefined, brush: { prompt, seconds: region.end - region.start, start: region.start, seed: Math.floor(Math.random() * 2 ** 31), model: choice.model, video: choice.video } })); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
   async function refreshEngine() { if (window.desktop) setEngine(await window.desktop.checkEngine(profile)); }
+  // The label is the only thing that changes; the audio file, edits and take stay as they are.
+  function renameChannel(id: string, label: string) {
+    const text = label.trim().slice(0, 160); if (!text) return;
+    setRuns(values => values.map(run => run.stems.some(stem => stem.id === id) ? { ...run, stems: run.stems.map(stem => stem.id === id ? { ...stem, label: text } : stem) } : run));
+  }
   function deleteChannels(ids: string[]) {
     const runId = currentRun?.runId;
     if (!runId || (jobBusy && job.rootRunId === runId)) return;
@@ -473,7 +499,7 @@ function App() {
   }
   return <div className="app-shell studio-workspace">
     <TooltipLayer/>
-    <header className="topbar"><div className="brand"><img className="primary-comfy-logo" src={comfyWordmark} alt="Comfy"/><img className="stem-logo" src={stemLogo} alt="Stem Studio"/></div><button className="project-switch" onClick={() => void showProjects()} title={project?.path || "Projects"} disabled={!project || projectBusy}><FolderOpen size={14}/><span>{project?.name || "Project"}</span><small>{projectStatus}</small></button><ResourceMonitor profile={profile}/><div className="topbar-right"><button className="icon-button" aria-label="Keyboard shortcuts" data-tip={'Shortcuts\n?'} onClick={() => setShortcutsOpen(true)}><Keyboard size={15}/></button><div className="layout-zoom" aria-label="Layout scale"><button className="icon-button" aria-label="Zoom layout out" disabled={layoutZoom <= 0.6} onClick={() => setLayoutZoom(value => Math.max(0.6, Math.round((value - 0.1) * 10) / 10))}><ZoomOut size={15}/></button><button className="zoom-reset" title="Reset layout scale" onClick={() => setLayoutZoom(1)}>{Math.round(layoutZoom * 100)}%</button><button className="icon-button" aria-label="Zoom layout in" disabled={layoutZoom >= 1.5} onClick={() => setLayoutZoom(value => Math.min(1.5, Math.round((value + 0.1) * 10) / 10))}><ZoomIn size={15}/></button></div><button className={`connection-pill ${connected ? 'online' : ''}`} onClick={() => setSettings(true)} title="Connection settings" aria-label="Connection settings"><span className="status-dot"/><Settings2 size={16}/></button></div></header>
+    <header className="topbar"><div className="brand"><img className="primary-comfy-logo" src={comfyWordmark} alt="Comfy"/><img className="stem-logo" src={stemLogo} alt="Stem Studio"/></div><button className="project-switch" onClick={() => void showProjects()} title={project?.path || "Projects"} disabled={!project || projectBusy}><FolderOpen size={14}/><span>{project?.name || "Project"}</span><small>{projectStatus}</small></button><ResourceMonitor profile={profile}/><div className="topbar-right"><button className="icon-button" aria-label="Shortcuts and models" data-tip={'Shortcuts and models\n?'} onClick={() => setShortcutsOpen(true)}><CircleHelp size={15}/></button><div className="layout-zoom" aria-label="Layout scale"><button className="icon-button" aria-label="Zoom layout out" disabled={layoutZoom <= 0.6} onClick={() => setLayoutZoom(value => Math.max(0.6, Math.round((value - 0.1) * 10) / 10))}><ZoomOut size={15}/></button><button className="zoom-reset" title="Reset layout scale" onClick={() => setLayoutZoom(1)}>{Math.round(layoutZoom * 100)}%</button><button className="icon-button" aria-label="Zoom layout in" disabled={layoutZoom >= 1.5} onClick={() => setLayoutZoom(value => Math.min(1.5, Math.round((value + 0.1) * 10) / 10))}><ZoomIn size={15}/></button></div><button className={`connection-pill ${connected ? 'online' : ''}`} onClick={() => setSettings(true)} title="Connection settings" aria-label="Connection settings"><span className="status-dot"/><Settings2 size={16}/></button></div></header>
     <main ref={workspaceMain} className={`workspace-main ${timelineExpanded ? 'timeline-expanded' : ''}`} style={{ '--workspace-height': `${topHeight}px` } as React.CSSProperties}>
       <div className="workspace-grid">
         <aside className="panel controls-panel">
@@ -497,7 +523,7 @@ function App() {
           onPointerMove={event => { const drag = floatDrag.current; if (!drag) return; const dx = event.clientX - drag.x, dy = event.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true; if (drag.moved) { const box = clampFloat({ ...floatSize, left: drag.left + dx, top: drag.top + dy }, { width: window.innerWidth, height: window.innerHeight }); setFloatPosition({ x: box.left, y: box.top }); } }}
           onPointerUp={event => { floatMoved.current = !!floatDrag.current?.moved; floatDrag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { floatDrag.current = null; }} onLostPointerCapture={() => { floatDrag.current = null; }}>{timelineExpanded && ['n','s','e','w','nw','ne','sw','se'].map(edge => <div key={edge} className={`floating-edge floating-edge-${edge}`} onClick={event => event.stopPropagation()} onPointerDown={event => { event.preventDefault();event.stopPropagation();floatResize.current={edge,x:event.clientX,y:event.clientY,...floatSize,left:floatPosition.x,top:floatPosition.y};event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={resizeFloatBox} onPointerUp={event => {event.stopPropagation();floatResize.current=null;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);}} onPointerCancel={() => {floatResize.current=null;}} onLostPointerCapture={() => {floatResize.current=null;}}/>)}<div className="panel-heading"><h2>Preview</h2></div><div className={`preview-stage ${source ? 'has-source' : ''}`}>{source && !source.missing ? <><video ref={setVideo} key={source.url} src={source.url} onLoadedMetadata={event => setVideoRatio(event.currentTarget.videoWidth / event.currentTarget.videoHeight || 16 / 9)} onClick={() => { if (!timelineExpanded) void transport.toggle(); }} onError={() => setMediaError(true)}/>{sourceIsAudio && <div className="audio-badge"><AudioLines size={34}/><span>{source.name}</span></div>}{mediaError && <p className="video-error">Unsupported preview codec. Try an H.264 MP4 or a common audio format.</p>}</> : <div className="empty-preview"><button className="secondary-button" onClick={openVideo}><Plus size={16}/> Open video or audio</button></div>}</div><PreviewFooter transport={transport} playback={playback}/></section>
       </div>
-      <StemTimeline deleteChannels={deleteChannels} brushAvailable={!!source && !!connected && !!engine?.ready && !jobBusy && !projectBusy} onBrush={region => setBrushRegion(region)} closeTake={closeTake} key={`${project?.id || "scratch"}:${currentRun?.runId || "empty"}`} initialView={timelines.current[currentRun?.runId || ""]} onViewChange={rememberTimeline} details={details} detailBusy={jobBusy || !canSeparate} detailAvailable={!!engine?.detailRange} expanded={timelineExpanded} toggleExpanded={() => setTimelineExpanded(value => !value)} resize={resizeWorkspace} resetSize={() => setWorkspaceShare(0.46)} workspaceHeight={topHeight} resizeBounds={{ min: workspaceTop(workspaceAvailable, 0), max: workspaceTop(workspaceAvailable, Infinity) }} stems={shownStems} save={saveStems} takes={runs.map(run => ({ id: run.runId!, label: modelNames[run.model || ''] || run.model || 'Take' }))} selectedTake={currentRun?.runId || ''} selectTake={pickRun} freshIds={fresh} externalPreview={externalPreview} bringPreviewBack={() => void bringPreviewBack()} useAsReference={makeReference} exportMixFile={exportMixFile} sourceName={source?.name.replace(/\.[^.]+$/, '') || 'mix'} canExportVideo={!!source && !sourceIsAudio} exporting={exporting || videoExporting} exportVideo={mix => { exportMix.current = mix; setExportState({ phase: 'idle', progress: 0, message: '' }); setError(''); setExportOpen(true); }} independent={(currentRun?.model || job.model) === 'USS · All'} transport={transport} playback={playback}/>
+      <StemTimeline renameChannel={renameChannel} deleteChannels={deleteChannels} brushAvailable={!!source && !!connected && !!engine?.ready && !jobBusy && !projectBusy} onBrush={region => setBrushRegion(region)} closeTake={closeTake} key={`${project?.id || "scratch"}:${currentRun?.runId || "empty"}`} initialView={timelines.current[currentRun?.runId || ""]} onViewChange={rememberTimeline} details={details} detailBusy={jobBusy || !canSeparate} detailAvailable={!!engine?.detailRange} expanded={timelineExpanded} toggleExpanded={() => setTimelineExpanded(value => !value)} resize={resizeWorkspace} resetSize={() => setWorkspaceShare(0.46)} workspaceHeight={topHeight} resizeBounds={{ min: workspaceTop(workspaceAvailable, 0), max: workspaceTop(workspaceAvailable, Infinity) }} stems={shownStems} save={saveStems} takes={runs.map(run => ({ id: run.runId!, label: modelNames[run.model || ''] || run.model || 'Take' }))} selectedTake={currentRun?.runId || ''} selectTake={pickRun} freshIds={fresh} externalPreview={externalPreview} bringPreviewBack={() => void bringPreviewBack()} useAsReference={makeReference} exportMixFile={exportMixFile} sourceName={source?.name.replace(/\.[^.]+$/, '') || 'mix'} canExportVideo={!!source && !sourceIsAudio} exporting={exporting || videoExporting} exportVideo={mix => { exportMix.current = mix; setExportState({ phase: 'idle', progress: 0, message: '' }); setError(''); setExportOpen(true); }} independent={(currentRun?.model || job.model) === 'USS · All'} transport={transport} playback={playback}/>
       {playback.error && <p className="error-banner" role="alert">{playback.error}</p>}
       {saveNotice && !settings && <p className="save-notice" role="status"><Check size={14}/>{saveNotice}</p>}
       {error && !settings && <p className="error-banner" role="alert">{error}</p>}
@@ -516,7 +542,7 @@ function App() {
     </ModelModal>}
     {brushRegion && <BrushModal region={brushRegion} engine={engine} profile={profile} busy={jobBusy || !canSeparate} close={() => { setBrushRegion(null); transport.clearSelection(); }} hasVideo={!!source && !sourceIsAudio} refreshEngine={refreshEngine} run={(prompt, choice) => void runBrush(prompt, choice)}/>}
     {previewMenu && <div className="timeline-context-menu preview-menu" role="menu" aria-label="Preview actions" style={{ left: previewMenu.x, top: previewMenu.y }}>{externalPreview ? <button role="menuitem" onClick={() => void bringPreviewBack()}><Clapperboard size={14}/> Bring the preview back</button> : <button role="menuitem" onClick={() => void sendPreview()}><Clapperboard size={14}/> Send preview to another display</button>}</div>}
-    {shortcutsOpen && <ShortcutsPanel close={() => setShortcutsOpen(false)}/>}
+    {shortcutsOpen && <ShortcutsPanel close={() => setShortcutsOpen(false)} usage={usage}/>}
     {projectsOpen && <div className="modal-backdrop"><section className="connection-modal projects-modal" role="dialog" aria-modal="true" aria-labelledby="projects-title">
       <div className="modal-top"><span className="eyebrow"><FolderOpen size={14}/> PROJECTS</span><button className="icon-button" disabled={projectBusy} onClick={() => setProjectsOpen(false)} aria-label="Close projects"><X size={17}/></button></div>
       <h2 id="projects-title">Your workspace.</h2>

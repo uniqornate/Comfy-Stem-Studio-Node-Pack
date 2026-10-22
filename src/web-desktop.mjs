@@ -218,7 +218,7 @@ export function createWebDesktop(env = {}) {
       for (const stem of run.stems) {
         const ok = await exists(stem.native);
         if (ok) outputs.set(stem.id, { ref: stem.native, name: `${stem.label.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100)}-${stem.id.slice(0, 8)}.flac` });
-        stems.push({ id: stem.id, label: stem.label, size: stem.size, ...(stem.parentId ? { parentId: stem.parentId } : {}), url: ok ? viewUrl(base, stem.native) : '', missing: !ok });
+        stems.push({ id: stem.id, label: stem.label, size: stem.size, ...(stem.parentId ? { parentId: stem.parentId } : {}), ...(stem.kind === 'brush' ? { kind: 'brush' } : {}), url: ok ? viewUrl(base, stem.native) : '', missing: !ok });
         if (!ok) warnings.push(`Missing channel: ${stem.label}`);
       }
       runs.push({ ...run, stems });
@@ -252,7 +252,8 @@ export function createWebDesktop(env = {}) {
       if (!ID.test(stem.id)) throw Error('Invalid channel id.');
       const existing = known.get(stem.id); const output = outputs.get(stem.id);
       if (!existing && !output) throw Error(`Channel is unavailable: ${stem.label}`);
-      return existing || { id: stem.id, label: String(stem.label).slice(0, 160), size: stem.size, native: output.ref, ...(stem.parentId ? { parentId: stem.parentId } : {}) };
+      const label = String(stem.label).slice(0, 160) || 'Channel';
+      return existing ? { ...existing, label } : { id: stem.id, label, size: stem.size, native: output.ref, ...(stem.parentId ? { parentId: stem.parentId } : {}), ...(stem.kind === 'brush' ? { kind: 'brush' } : {}) };
     }) }));
     const next = validateProject({ ...current, updatedAt: new Date().toISOString(), runs: durable, view });
     await writeProject(next); current = next; lastInput = input; return info();
@@ -421,7 +422,7 @@ export function createWebDesktop(env = {}) {
           const size = await fileSize(ref); if (!size) throw Error(`${channel.label} output was empty or missing.`);
           const id = uuid();
           outputs.set(id, { ref, name: options.parentId ? `${options.parentId.slice(0, 8)}-${channel.key}-${id.slice(0, 6)}.flac` : `${channel.key}.flac` });
-          stems.push({ id, label: channel.label, size, url: viewUrl(base, ref), ...(options.parentId ? { parentId: options.parentId } : {}) });
+          stems.push({ id, label: channel.label, size, url: viewUrl(base, ref), ...(options.parentId ? { parentId: options.parentId } : {}), ...(options.mode === 'brush' ? { kind: 'brush' } : {}) });
         }
         state = { phase: 'complete', message: `${selected.length} channels ready. Preview or save each channel, or download all.`, stems, canCancel: false, runId: uuid(), parentId: options.parentId, rootRunId: options.rootRunId, model: ['uss', 'sam'].includes(options.mode) ? `${options.mode.toUpperCase()} · ${options.target}` : options.mode === 'guidesep' ? `GuideSep · ${options.target}` : options.mode === 'brush' ? `Brush · ${String(options.target).slice(0, 40)}` : options.mode === 'music' ? 'Music · 6 stems' : options.model || 'mrx' };
       };

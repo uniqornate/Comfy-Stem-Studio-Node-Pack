@@ -336,3 +336,16 @@ test('live progress comes from the ComfyUI websocket: finished nodes plus the ru
   assert.ok(Math.abs(status.progress - (0.05 + 0.9 * (1 + 0.5) / 5)) < 1e-9, String(status.progress));
   await desktop.cancelSeparation();
 });
+
+test('a renamed channel keeps its ComfyUI file and its brush kind in the saved project', async () => {
+  const server = fakeComfy(); const { desktop } = make(server);
+  const { session, opened } = await withSource(desktop);
+  await desktop.separateStems(await desktop.getProfile(), opened.url, { mode: 'stems', model: 'mrx' });
+  const done = await waitFor(desktop, ['complete']);
+  const run = { ...done, stems: done.stems.map((stem, index) => index === 0 ? { ...stem, label: 'Voice over', kind: 'brush' } : stem) };
+  await desktop.saveProject({ projectId: session.info.id, runs: [run], view: {} });
+  const { desktop: again } = make(server);
+  const restored = await again.getProject();
+  assert.equal(restored.runs[0].stems[0].label, 'Voice over');
+  assert.equal(restored.runs[0].stems[0].missing, false);
+});
