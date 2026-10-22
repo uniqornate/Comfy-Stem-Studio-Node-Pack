@@ -52,6 +52,8 @@ function App() {
   const [preparingProxy, setPreparingProxy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState('');
+  // A save notice is a passing message: it fades after a few seconds, or when clicked.
+  useEffect(() => { if (!saveNotice) return; const timer = setTimeout(() => setSaveNotice(''), 6000); return () => clearTimeout(timer); }, [saveNotice]);
   const [error, setError] = useState('');
   const [source, setSource] = useState<Source | null>(null);
   const [project, setProject] = useState<ProjectInfo | null>(null);
@@ -537,7 +539,7 @@ function App() {
       </div>
       <StemTimeline pending={jobBusy ? { message: job.message, progress: typeof job.progress === 'number' ? job.progress : null, eta: typeof job.eta === 'number' ? job.eta : null } : null} renameChannel={renameChannel} deleteChannels={deleteChannels} brushAvailable={!!source && !!connected && !!engine?.ready && !jobBusy && !projectBusy} onBrush={region => setBrushRegion(region)} closeTake={closeTake} key={`${project?.id || "scratch"}:${currentRun?.runId || "empty"}`} initialView={timelines.current[currentRun?.runId || ""]} onViewChange={rememberTimeline} details={details} detailBusy={jobBusy || !canSeparate} detailAvailable={!!engine?.detailRange} expanded={timelineExpanded} toggleExpanded={() => setTimelineExpanded(value => !value)} resize={resizeWorkspace} resetSize={() => setWorkspaceShare(0.46)} workspaceHeight={topHeight} resizeBounds={{ min: workspaceTop(workspaceAvailable, 0), max: workspaceTop(workspaceAvailable, Infinity) }} stems={shownStems} save={saveStems} takes={runs.map(run => ({ id: run.runId!, label: modelNames[run.model || ''] || run.model || 'Take' }))} selectedTake={currentRun?.runId || ''} selectTake={pickRun} freshIds={fresh} externalPreview={externalPreview} bringPreviewBack={() => void bringPreviewBack()} useAsReference={makeReference} exportMixFile={exportMixFile} sourceName={source?.name.replace(/\.[^.]+$/, '') || 'mix'} canExportVideo={!!source && !sourceIsAudio} exporting={exporting || videoExporting} exportVideo={mix => { exportMix.current = mix; setExportState({ phase: 'idle', progress: 0, message: '' }); setError(''); setExportOpen(true); }} independent={(currentRun?.model || job.model) === 'USS · All'} transport={transport} playback={playback}/>
       {playback.error && <p className="error-banner" role="alert">{playback.error}</p>}
-      {saveNotice && !settings && <p className="save-notice" role="status"><Check size={14}/>{saveNotice}</p>}
+      {saveNotice && !settings && <p className="save-notice" role="status" onClick={() => setSaveNotice('')} data-tip="Click to dismiss"><Check size={14}/>{saveNotice}</p>}
       {error && !settings && <p className="error-banner" role="alert">{error}</p>}
     </main>
     {detailOpen && detailRequest && <DetailPicker reference={reference} setReference={setReference} referenceOffset={referenceOffset} setReferenceOffset={setReferenceOffset} variant={samVariant} setVariant={setSAMVariant} sourceUrl={source?.url || ''} submitShortcut={detailShortcut} request={detailRequest} profile={profile} engine={engine} busy={jobBusy} close={() => setDetailOpen(false)} extract={(mode, target, guidance, referenceAudio) => void extractDetail(detailRequest, mode, target, guidance, referenceAudio)}/>}
