@@ -22,5 +22,13 @@ channel.onmessage = event => {
   else if (message.type === 'ping') channel.postMessage({ type: 'pong' });
 };
 channel.postMessage({ type: 'ready' });
+// The main page remembers where this window sits (also on another display) and opens it there next time.
+let reported = '';
+function reportBounds() {
+  const bounds = { left: window.screenX, top: window.screenY, width: window.outerWidth, height: window.outerHeight };
+  const key = JSON.stringify(bounds); if (key === reported || bounds.width < 200 || bounds.height < 120) return;
+  reported = key; channel.postMessage({ type: 'bounds', ...bounds });
+}
+window.addEventListener('resize', reportBounds); setInterval(reportBounds, 1000); reportBounds();
 window.addEventListener('pagehide', () => channel.postMessage({ type: 'closed' }));
 window.addEventListener('dblclick', () => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen().catch(() => {}); });

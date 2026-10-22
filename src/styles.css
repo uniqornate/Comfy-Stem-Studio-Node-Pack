@@ -527,3 +527,6 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .group-name-field{display:grid;gap:6px;font-size:11px;color:var(--muted)}
 .group-name-field input{border:1px solid var(--border);border-radius:9px;padding:9px 10px;background:var(--ink);color:var(--text);font:inherit;font-size:13px}
 .group-modal .swatches{padding:0}
+
+/* The page's own scrollbar is hidden; the timeline keeps its thin ones */
+html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}

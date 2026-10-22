@@ -187,7 +187,10 @@ function App() {
     });
     return () => { off(); if (timer) clearTimeout(timer); };
   }, [externalPreview, transport, video]);
-  useEffect(() => { if (externalPreview) { void window.desktop?.closePreview().catch(() => {}); setExternalPreview(false); } }, [source?.url]);
+  // The preview window follows the source it was sent with, so it closes when another source replaces it. The first source of a
+  // page (after a reload, the source loads later than the preview status) must not close a preview that is still open.
+  const previewSource = useRef<string | undefined>(undefined);
+  useEffect(() => { const before = previewSource.current; previewSource.current = source?.url; if (before && before !== source?.url && externalPreview) { void window.desktop?.closePreview().catch(() => {}); setExternalPreview(false); } }, [source?.url]);
   async function sendPreview() {
     setPreviewMenu(null);
     if (!window.desktop || !source) return;

@@ -643,16 +643,20 @@ export function browserEnvironment(win = globalThis) {
       channel?.addEventListener('message', event => {
         const message = event.data || {};
         if (message.type === 'ready' && last) channel.postMessage({ type: 'state', ...last });
+        else if (message.type === 'bounds') { const { left, top, width, height } = message; if ([left, top, width, height].every(Number.isFinite)) try { storage?.setItem('stemstudio.previewBounds', JSON.stringify({ left, top, width, height })); } catch { /* not remembered */ } }
         else if (message.type === 'closed') { popup = null; listeners.forEach(callback => callback()); }
       });
       return {
         async open(url, state) {
           last = state;
-          popup = win.open(`${base}/stemstudio/app/preview.html?src=${encodeURIComponent(url)}`, 'stemstudio-preview', 'popup=yes,width=960,height=540');
+          // Where the window was last (a display other than this one included) it opens again; the first time it is placed by hand below.
+          let remembered = null; try { const saved = JSON.parse(storage?.getItem('stemstudio.previewBounds') || 'null'); if (saved && [saved.left, saved.top, saved.width, saved.height].every(Number.isFinite) && saved.width >= 200 && saved.height >= 120) remembered = saved; } catch { /* ignore */ }
+          const place = remembered ? `left=${Math.round(remembered.left)},top=${Math.round(remembered.top)},width=${Math.round(remembered.width)},height=${Math.round(remembered.height)}` : 'width=960,height=540';
+          popup = win.open(`${base}/stemstudio/app/preview.html?src=${encodeURIComponent(url)}`, 'stemstudio-preview', `popup=yes,${place}`);
           if (!popup) throw Error('Your browser blocked the preview window. Allow pop-ups for this page and try again.');
-          let external = false;
+          let external = !!remembered;
           try {
-            if (win.getScreenDetails) {
+            if (!remembered && win.getScreenDetails) {
               const details = await win.getScreenDetails(), other = details.screens.find(screen => screen !== details.currentScreen);
               if (other) { popup.moveTo(other.availLeft, other.availTop); popup.resizeTo(other.availWidth, other.availHeight); external = true; }
             }
