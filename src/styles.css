@@ -529,7 +529,7 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .group-modal .swatches{padding:0}
 
 /* The page's own scrollbar is hidden; the timeline keeps its thin ones */
-html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar{display:none}
 
 /* Preview canvas: the letterbox bars take the theme colour and a quiet dot matrix instead of video black */
 .studio-workspace .preview-panel:not(.floating-preview) .preview-stage{background-color:var(--ink);background-image:radial-gradient(ellipse at center,transparent 45%,#211927cc 100%),radial-gradient(circle,#ffffff2e 0 .9px,transparent 1.3px);background-size:100% 100%,16px 16px;background-position:center}
