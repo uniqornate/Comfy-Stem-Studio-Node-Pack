@@ -16,7 +16,7 @@ There is also a Windows desktop app with the same workspace: [Comfy-Stem-Studio]
 ## Install
 
 1. Clone this repository into `ComfyUI/custom_nodes/` (or install it from ComfyUI Manager once it is published) and restart ComfyUI. Do not keep another copy of `custom_nodes/StemStudio` (for example from the desktop app) at the same time.
-2. Open the **Stem Studio** sidebar tab (or the command *Open Stem Studio*) and press Open. The app opens full screen over ComfyUI; it is also reachable alone at `http://127.0.0.1:8188/stemstudio/app/`.
+2. Click the **Stem Studio** sidebar tab (or run the command *Open Stem Studio*). The app opens by itself in its own browser tab; if your browser blocks the pop-up, press the button in the sidebar. You can also bookmark `http://127.0.0.1:8188/stemstudio/app/`.
 3. Open **Connection**, tick the license box and download a model pack (MRX is the small default). Downloads are verified by hash and resume after an interruption.
 4. Pick a video or audio file and separate.
 

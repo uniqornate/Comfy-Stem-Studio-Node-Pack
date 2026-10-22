@@ -5,7 +5,7 @@ from pathlib import Path
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
-# Frontend extension (sidebar entry + full-screen overlay). The built app itself is served by web_routes.py.
+# Frontend extension (sidebar entry that opens the app in its own tab). The built app itself is served by web_routes.py.
 WEB_DIRECTORY = "./web"
 try:
     import folder_paths

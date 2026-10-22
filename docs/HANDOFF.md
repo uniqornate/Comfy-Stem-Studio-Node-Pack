@@ -8,6 +8,7 @@
 
 | Work | Status | Owner | Scope | Next |
 |---|---|---|---|---|
+| W-20261023-03 | WAITING_USER | Claude | 0.13.3: the Stem Studio sidebar tab opens the app in its own browser tab automatically (no overlay, no header bar). | User clicks the sidebar tab and checks the tab opens, and that a blocked pop-up leaves a working button. |
 | W-20261022-02 | WAITING_USER | Claude | 0.13.2: Help panel (coloured shortcut groups, Models page with measured peak VRAM/RAM/CPU), channel rename (double-click or Ctrl+R), brush icon on painted channels, new tile icons; same changes as the desktop repository 0.12.11. | User tests in ComfyUI. |
 | W-20261022-01 | WAITING_USER | Claude | Repository created from the node pack mode of the desktop repository (0.13.1): Stem Studio UI inside ComfyUI, browser Desktop adapter, Python preparation routes, brush models, six-stem music, MMAudio, batch, mix export. | User restarts ComfyUI with the pack installed, opens the Stem Studio tab and reports what breaks. |
 
@@ -16,6 +17,16 @@
 1. User opens ComfyUI, uses the Stem Studio sidebar tab, downloads MRX from Connection and runs a short separation; then the six-stem model, brush models and MMAudio preparation. Report console and network errors.
 
 ## CHRONOLOGICAL LOG
+
+### W-20261023-03: Open in its own tab
+
+- Agent: Claude Sonnet 5.5 | Provider: Anthropic | Surface: Claude Code desktop
+  Time: 2026-10-23T00:30:00+03:00 | Work: W-20261023-03
+  Change: web/stemstudio.js no longer builds a full-screen overlay with an "Open in a tab" header. Clicking the sidebar tab (or the command) opens /stemstudio/app/index.html in a window named stemstudio-app, so a second click focuses the same tab. The first open happens when the sidebar panel renders; if the browser blocks the pop-up the panel keeps an Open button and says so.
+  Validation: JS tests and the existing extension test pass. Not run in a browser.
+  Limits: Whether the sidebar render call still counts as a user gesture for pop-up blockers is unconfirmed; the button is the fallback. The app has no ComfyUI chrome in its own tab, so use the browser's tab switcher to return.
+  Artifacts: comfy_nodes/StemStudio/web/stemstudio.js, __init__.py comment, README.md, docs/ARCHITECTURE.md, package.json, pyproject.toml.
+  Next: User verifies.
 
 ### W-20261022-02: Help panel, rename, brush icon (ported from desktop 0.12.11)
 
