@@ -11,6 +11,7 @@ import { usePosition } from './usePlayback';
 import { clampRow, knobFromRow, ROW_DEFAULT, rowFromKnob } from './row-height.mjs';
 import { channelFamily } from './channels.mjs';
 import { MixExportModal } from './MixExportModal';
+import { pageZoom } from './page-zoom.mjs';
 import type { MixExportOptions } from './types';
 import { emptyHistory, record, undo, redo, type History } from './history.mjs';
 import { toggleMute, toggleSolo, normalizeSolo } from './solo.mjs';
@@ -318,6 +319,38 @@ export function StemTimeline({ renameChannel, deleteChannels, brushAvailable, on
   // Drag-time overrides on waveform pictures are removed once React has drawn the new clip, so there is no frame in between.
   const clearDirect = () => section.current?.querySelectorAll('svg[data-direct]').forEach(element => { element.removeAttribute('data-direct'); element.removeAttribute('style'); const view = (element as SVGElement).dataset.view; if (view) element.setAttribute('viewBox', view); });
   useLayoutEffect(clearDirect, [edits]);
+  // Menus start where the pointer was, then are measured and moved back inside the window (and given a scrollbar if the window
+  // is shorter than the menu). Measuring beats a fixed allowance: the menu grows with its entries and the page may be zoomed.
+  useLayoutEffect(() => {
+    const scale = pageZoom();
+    section.current?.querySelectorAll<HTMLElement>('.timeline-context-menu').forEach(element => {
+      element.style.maxHeight = `${(window.innerHeight - 8) / scale}px`;
+      const box = element.getBoundingClientRect();
+      let dx = 0, dy = 0;
+      if (box.bottom > window.innerHeight - 4) dy = window.innerHeight - 4 - box.bottom;
+      if (box.top + dy < 4) dy = 4 - box.top;
+      if (box.right > window.innerWidth - 4) dx = window.innerWidth - 4 - box.right;
+      if (box.left + dx < 4) dx = 4 - box.left;
+      if (dy) element.style.top = `${parseFloat(element.style.top || '0') + dy / scale}px`;
+      if (dx) element.style.left = `${parseFloat(element.style.left || '0') + dx / scale}px`;
+    });
+  }, [menu, deleteAsk, takeMenu]);
+  // Menus are placed where the pointer was, then measured and moved back inside the window (and shortened with a scrollbar
+  // if the window is too small). Measuring beats a fixed allowance: the menu grows with its entries and the page may be zoomed.
+  useLayoutEffect(() => {
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    section.current?.querySelectorAll<HTMLElement>('.timeline-context-menu').forEach(element => {
+      element.style.maxHeight = `${(window.innerHeight - 8) / zoom}px`;
+      const box = element.getBoundingClientRect();
+      let dx = 0, dy = 0;
+      if (box.bottom > window.innerHeight - 4) dy = window.innerHeight - 4 - box.bottom;
+      if (box.top + dy < 4) dy = 4 - box.top;
+      if (box.right > window.innerWidth - 4) dx = window.innerWidth - 4 - box.right;
+      if (box.left + dx < 4) dx = 4 - box.left;
+      if (dy) element.style.top = `${parseFloat(element.style.top || '0') + dy / zoom}px`;
+      if (dx) element.style.left = `${parseFloat(element.style.left || '0') + dx / zoom}px`;
+    });
+  }, [menu, deleteAsk, takeMenu]);
   function editStart(event: React.PointerEvent<HTMLElement>, stem: Stem, requested: 'gain' | 'start' | 'end' | 'move', id?: string) {
     if (event.button !== 0 || !duration) return;
     const kind = requested === 'move' && event.altKey && !event.shiftKey && !brushRef.current.brushMode ? 'copy' : requested;
@@ -412,6 +445,7 @@ export function StemTimeline({ renameChannel, deleteChannels, brushAvailable, on
   function muteChannel(id: string) { remember(); setMix(values => toggleMute(values, id)); }
   function soloChannel(event: React.MouseEvent, id: string) { remember(); const additive = event.ctrlKey || event.metaKey; setMix(values => toggleSolo(values, id, additive)); }
   function context(event: React.MouseEvent<HTMLElement>, stem: Stem) { event.preventDefault(); setPicked(previous => previous.has(stem.id) ? previous : new Set([stem.id])); const lane = event.currentTarget.closest('.timeline-track')?.querySelector('.waveform-lane'); const rect = lane?.getBoundingClientRect(); const at = rect && event.currentTarget.classList.contains('waveform-lane') ? pointerTime(event.clientX, rect.left, rect.width, duration) : transport.snapshot().position; setMenu({ stem, at, x: Math.max(4, Math.min(event.clientX, window.innerWidth - 235)), y: Math.max(4, Math.min(event.clientY, window.innerHeight - 265)) }); }
+  const popupZoom = pageZoom();
   const rows = groupedTracks(stems, collapsed).map(row => ({ ...row, track: tracks.find(track => track.stem.id === row.stem.id) })).filter(row => !!row.track);
   function pick(event: React.MouseEvent, id: string) {
     if ((event.target as Element).closest('button,input,.row-grip,.level-knob')) return;
@@ -474,9 +508,9 @@ export function StemTimeline({ renameChannel, deleteChannels, brushAvailable, on
       </div>; })}
       {!tracks.length && <p className="timeline-loading">{loading ? 'Preparing waveform lanes…' : 'Separate stems to see waveform lanes.'}</p>}
     </div></div>
-    {menu && <div className="timeline-context-menu" role="menu" aria-label={`${menu.stem.label} actions`} style={{ left: menu.x, top: menu.y }}><small>{menu.stem.label}{selection ? ` · ${clock(selection.start)} → ${clock(selection.end)}` : ' · whole channel'}</small><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, selection?.start || 0, selection?.end || duration, false); setMenu(null); }}><ScanSearch size={14}/> Extract details <span>USS Auto</span></button><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, selection?.start || 0, selection?.end || duration, true); setMenu(null); }}><Crosshair size={14}/> Extract sound…</button><button role="menuitem" disabled={!duration} onClick={() => { remember(); setEdits(previous => ({ ...previous, [menu.stem.id]: splitEdit(previous[menu.stem.id], menu.at, duration) })); setMenu(null); }}><Scissors size={14}/> Split channel <span>{clock(menu.at)}</span></button><button role="menuitem" onClick={() => { remember(); setEdits(previous => { const next = { ...previous }; delete next[menu.stem.id]; return next; }); setMenu(null); }}>Reset channel edits</button><button role="menuitem" onClick={() => { useAsReference(menu.stem); setMenu(null); }}><Mic size={14}/> Use as GuideSep reference</button><button role="menuitem" disabled={exporting} onClick={() => { save(menu.stem.id); setMenu(null); }}><ArrowDownToLine size={14}/> Download channel</button>{(() => { const found = clipAt(edits[menu.stem.id], menu.at, duration); return found ? <button role="menuitem" onClick={() => { deleteClip(menu.stem.id, found.id); setMenu(null); }}><Scissors size={14}/> Delete clip <span>Del</span></button> : null; })()}<button role="menuitem" onClick={() => { const many = picked.has(menu.stem.id) && picked.size > 1; askDelete(many ? [...picked] : [menu.stem.id], menu.x, menu.y); setMenu(null); }}><Trash2 size={14}/> {picked.has(menu.stem.id) && picked.size > 1 ? `Delete ${picked.size} channels…` : 'Delete channel…'}</button></div>}
+    {menu && <div className="timeline-context-menu" role="menu" aria-label={`${menu.stem.label} actions`} style={{ left: menu.x / popupZoom, top: menu.y / popupZoom }}><small>{menu.stem.label}{selection ? ` · ${clock(selection.start)} → ${clock(selection.end)}` : ' · whole channel'}</small><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, selection?.start || 0, selection?.end || duration, false); setMenu(null); }}><ScanSearch size={14}/> Extract details <span>USS Auto</span></button><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, selection?.start || 0, selection?.end || duration, true); setMenu(null); }}><Crosshair size={14}/> Extract sound…</button><button role="menuitem" disabled={!duration} onClick={() => { remember(); setEdits(previous => ({ ...previous, [menu.stem.id]: splitEdit(previous[menu.stem.id], menu.at, duration) })); setMenu(null); }}><Scissors size={14}/> Split channel <span>{clock(menu.at)}</span></button><button role="menuitem" onClick={() => { remember(); setEdits(previous => { const next = { ...previous }; delete next[menu.stem.id]; return next; }); setMenu(null); }}>Reset channel edits</button><button role="menuitem" onClick={() => { useAsReference(menu.stem); setMenu(null); }}><Mic size={14}/> Use as GuideSep reference</button><button role="menuitem" disabled={exporting} onClick={() => { save(menu.stem.id); setMenu(null); }}><ArrowDownToLine size={14}/> Download channel</button>{(() => { const found = clipAt(edits[menu.stem.id], menu.at, duration); return found ? <button role="menuitem" onClick={() => { deleteClip(menu.stem.id, found.id); setMenu(null); }}><Scissors size={14}/> Delete clip <span>Del</span></button> : null; })()}<button role="menuitem" onClick={() => { const many = picked.has(menu.stem.id) && picked.size > 1; askDelete(many ? [...picked] : [menu.stem.id], menu.x, menu.y); setMenu(null); }}><Trash2 size={14}/> {picked.has(menu.stem.id) && picked.size > 1 ? `Delete ${picked.size} channels…` : 'Delete channel…'}</button></div>}
     {mixOpen && <MixExportModal items={tracks.filter(track => track.buffer).map(track => ({ id: track.stem.id, label: track.stem.label, buffer: track.buffer! }))} mix={mix} edits={edits} duration={duration} name={sourceName} close={() => setMixOpen(false)} exportFile={exportMixFile}/>}
-    {takeMenu && <div className="timeline-context-menu take-menu" role="menu" aria-label="Take actions" style={{ left: takeMenu.x, top: takeMenu.y }}><button role="menuitem" onClick={() => { closeTake(takeMenu.id); setTakeMenu(null); }}><X size={14}/> Close take</button><button role="menuitem" disabled={takes.length < 2} onClick={() => { closeTake(takeMenu.id, true); setTakeMenu(null); }}>Close other takes</button></div>}
-    {deleteAsk && <div className="timeline-context-menu delete-confirm" role="alertdialog" aria-label="Delete channels" style={{ left: deleteAsk.x, top: deleteAsk.y }}>{(() => { const all = deleteFamily(deleteAsk.ids), extra = all.length - deleteAsk.ids.length, first = stems.find(stem => stem.id === deleteAsk.ids[0]); return <><small>{deleteAsk.ids.length === 1 ? `Delete "${first?.label}"` : `Delete ${deleteAsk.ids.length} channels`}{extra > 0 ? ` and ${extra} detail channel${extra > 1 ? 's' : ''}` : ''}?</small><p>The audio stays on disk. {all.length > 1 ? 'These channels leave' : 'The channel leaves'} this take and cannot be restored here.</p><div><button className="secondary-button" onClick={() => setDeleteAsk(null)}>Cancel</button><button className="primary-button" onClick={() => { deleteChannels(all); setPicked(new Set()); setDeleteAsk(null); }}>Delete</button></div></>; })()}</div>}
+    {takeMenu && <div className="timeline-context-menu take-menu" role="menu" aria-label="Take actions" style={{ left: takeMenu.x / popupZoom, top: takeMenu.y / popupZoom }}><button role="menuitem" onClick={() => { closeTake(takeMenu.id); setTakeMenu(null); }}><X size={14}/> Close take</button><button role="menuitem" disabled={takes.length < 2} onClick={() => { closeTake(takeMenu.id, true); setTakeMenu(null); }}>Close other takes</button></div>}
+    {deleteAsk && <div className="timeline-context-menu delete-confirm" role="alertdialog" aria-label="Delete channels" style={{ left: deleteAsk.x / popupZoom, top: deleteAsk.y / popupZoom }}>{(() => { const all = deleteFamily(deleteAsk.ids), extra = all.length - deleteAsk.ids.length, first = stems.find(stem => stem.id === deleteAsk.ids[0]); return <><small>{deleteAsk.ids.length === 1 ? `Delete "${first?.label}"` : `Delete ${deleteAsk.ids.length} channels`}{extra > 0 ? ` and ${extra} detail channel${extra > 1 ? 's' : ''}` : ''}?</small><p>The audio stays on disk. {all.length > 1 ? 'These channels leave' : 'The channel leaves'} this take and cannot be restored here.</p><div><button className="secondary-button" onClick={() => setDeleteAsk(null)}>Cancel</button><button className="primary-button" onClick={() => { deleteChannels(all); setPicked(new Set()); setDeleteAsk(null); }}>Delete</button></div></>; })()}</div>}
   </section>;
 }

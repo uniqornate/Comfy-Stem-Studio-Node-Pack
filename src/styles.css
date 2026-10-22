@@ -448,3 +448,7 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 
 /* The level knob stays on the thinnest rows, just smaller */
 @container ctl (max-height:41px){.level-knob{display:inline-block;width:16px;height:16px;border-width:1px}.level-dial i{top:1px;height:4px}.level-knob .knob-readout{left:20px}.track-mix{gap:3px}.track-mix .meter-db{display:none}}
+
+.timeline-context-menu{max-height:calc(100vh - 8px);overflow-y:auto;scrollbar-width:thin}
+
+.timeline-context-menu{max-height:calc(100vh - 8px);overflow-y:auto;scrollbar-width:thin}

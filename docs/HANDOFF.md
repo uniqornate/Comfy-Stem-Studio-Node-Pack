@@ -26,6 +26,7 @@
   Validation: JS tests and the existing extension test pass. Not run in a browser.
   Limits: Whether the sidebar render call still counts as a user gesture for pop-up blockers is unconfirmed; the button is the fallback. The app has no ComfyUI chrome in its own tab, so use the browser's tab switcher to return.
   Artifacts: comfy_nodes/StemStudio/web/stemstudio.js, __init__.py comment, README.md, docs/ARCHITECTURE.md, package.json, pyproject.toml.
+  Follow-up 0.13.4 (page zoom): in the browser the layout scale is CSS zoom, so popups placed from pointer coordinates landed far from the pointer (tooltips below it, context menus off screen). src/page-zoom.mjs gives the zoom; tooltips, channel/take/delete menus, the preview menu and the floating preview drag and resize convert screen pixels to the zoomed units, and context menus are measured and moved back inside the window (scrollbar if the window is shorter than the menu). Not run in a browser.
   Next: User verifies.
 
 ### W-20261022-02: Help panel, rename, brush icon (ported from desktop 0.12.11)

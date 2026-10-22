@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { pageZoom } from './page-zoom.mjs';
 
 type Tip = { text: string; anchor: DOMRect };
 const DELAY = 320;
@@ -43,7 +44,9 @@ export function TooltipLayer() {
     const { width, height } = box.current.getBoundingClientRect();
     const margin = 8, center = tip.anchor.left + tip.anchor.width / 2;
     const below = tip.anchor.top - height - 10 < margin;
-    setPlace({ left: Math.max(margin, Math.min(window.innerWidth - width - margin, center - width / 2)), top: below ? Math.min(window.innerHeight - height - margin, tip.anchor.bottom + 10) : tip.anchor.top - height - 10, below });
+    // Everything above is in screen pixels; the tooltip's own left and top are scaled by the page zoom.
+    const zoom = pageZoom();
+    setPlace({ left: Math.max(margin, Math.min(window.innerWidth - width - margin, center - width / 2)) / zoom, top: (below ? Math.min(window.innerHeight - height - margin, tip.anchor.bottom + 10) : tip.anchor.top - height - 10) / zoom, below });
   }, [tip]);
   if (!tip) return null;
   const [heading, ...rest] = tip.text.split('\n');

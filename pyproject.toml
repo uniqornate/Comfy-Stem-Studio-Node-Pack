@@ -1,7 +1,7 @@
 [project]
 name = "stem-studio"
 description = "Separate dialogue, music and effects from video or audio, pull single sounds out with USS, SAM Audio and GuideSep, mix and export, with the full Stem Studio UI inside ComfyUI. Open weights only."
-version = "0.13.3"
+version = "0.13.4"
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
