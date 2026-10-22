@@ -1,0 +1,23 @@
+import type { Desktop } from './types';
+export const SOURCE_EXTENSIONS: string[];
+export type FileRef = { type: 'input' | 'output'; subfolder: string; filename: string };
+export function validRef(ref: unknown): boolean;
+export function annotate(ref: FileRef): string;
+export function viewUrl(base: string, ref: FileRef): string;
+export function parseView(url: string, base: string, origin?: string): FileRef | null;
+export type WebEnvironment = {
+  origin?: string; base?: string; fetch?: typeof fetch; sleep?: (ms: number) => Promise<void>;
+  storage?: { getItem(key: string): string | null; setItem(key: string, value: string): void };
+  pickFile?: (accept: string) => Promise<File | null>;
+  pickFiles?: (accept: string) => Promise<File[]>;
+  pickFolder?: () => Promise<{ name: string } | null>;
+  writeInFolder?: (root: unknown, name: string, files: { filename: string; load: () => Promise<Blob> }[]) => Promise<void>;
+  socket?: (clientId: string) => { onmessage: ((event: { data: unknown }) => void) | null; close(): void };
+  saveFile?: (blob: Blob, filename: string) => Promise<string>;
+  saveFolder?: (files: { filename: string; load: () => Promise<Blob> }[]) => Promise<string>;
+  zoom?: (factor: number) => void;
+  onPageHide?: (callback: () => void) => () => void;
+};
+export function createWebDesktop(env?: WebEnvironment): Desktop;
+export function browserEnvironment(win?: unknown): WebEnvironment;
+export function installWebDesktop(win?: unknown): boolean;

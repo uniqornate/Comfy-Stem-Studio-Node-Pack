@@ -1,0 +1,1 @@
+Existing Comfy brand assets supplied by the user. Copied unchanged from comfy-org-brand-assets. No ownership or MIT license claim is made for these logos. WPF setup uses the same SVG geometry and colors as native vector resources.

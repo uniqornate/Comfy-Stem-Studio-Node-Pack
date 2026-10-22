@@ -1,0 +1,3 @@
+# Stem Studio node pack. torch and torchaudio come with ComfyUI. SAM Audio and GuideSep install their own private
+# Python runtime on demand (never into ComfyUI's environment), so nothing else is required here.
+psutil

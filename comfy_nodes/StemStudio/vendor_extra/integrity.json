@@ -1,0 +1,59 @@
+{
+  "sfc-locoformer-dnr/model.pth": {
+    "algorithm": "SHA256",
+    "path": "sfc-locoformer-dnr/model.pth",
+    "url": "https://huggingface.co/kohei0209/spectral_feature_compression/resolve/0827e70a9e0c6f21b9b46cb9dfe4f7e4ebd307c5/models/dnr/locoformer-medium.enc-crossattn96dim.dec-crossattn96dim.musical64.learnable-query/checkpoints/model.pth",
+    "hash": "b878ea0ffe29c67401727d51cdaab8db0394178d8e0eafa9d2ca5e241fd472e2",
+    "size": 128207890
+  },
+  "sfc-locoformer-dnr/merged_config.yaml": {
+    "algorithm": "SHA256",
+    "path": "sfc-locoformer-dnr/merged_config.yaml",
+    "url": "https://huggingface.co/kohei0209/spectral_feature_compression/resolve/0827e70a9e0c6f21b9b46cb9dfe4f7e4ebd307c5/models/dnr/locoformer-medium.enc-crossattn96dim.dec-crossattn96dim.musical64.learnable-query/merged_config.yaml",
+    "hash": "4d0d1ffc3ff80f162f288d31477d6a0699578bbf00f11b8fd091580668c12adb",
+    "size": 4388
+  },
+  "uss/at_soft.ckpt": {
+    "algorithm": "SHA256",
+    "path": "uss/at_soft.ckpt",
+    "url": "https://huggingface.co/RSNuts/Universal_Source_Separation/resolve/3053b3c087ff5d32993a849ee44133021a3e0ba4/uss_material/ss_model=resunet30,querynet=at_soft,data=full,devices=8,step=1000000.ckpt",
+    "hash": "d8ef6b4fddd3c06f7b01693a503a3ca786290b24d48337e649e2163ba43f0ae5",
+    "size": 1121024828
+  },
+  "uss/config.yaml": {
+    "algorithm": "SHA256",
+    "path": "uss/config.yaml",
+    "url": "https://huggingface.co/RSNuts/Universal_Source_Separation/resolve/3053b3c087ff5d32993a849ee44133021a3e0ba4/uss_material/ss_model=resunet30,querynet=at_soft,data=full.yaml",
+    "hash": "5bc26616265810a648273eb98030f8bd42b788c3353cee0aca18dcaa2c1e4fd9",
+    "size": 1558
+  },
+  "uss/Cnn14_mAP=0.431.pth": {
+    "algorithm": "MD5",
+    "path": "uss/Cnn14_mAP=0.431.pth",
+    "url": "https://huggingface.co/thelou1s/panns-inference/resolve/5546cbe0c06a7695a23c041ef5e6dab76b3312d6/Cnn14_mAP%3D0.431.pth?download=true",
+    "fallbackUrls": [
+      "https://zenodo.org/records/3987831/files/Cnn14_mAP=0.431.pth?download=1"
+    ],
+    "sha256": "0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31",
+    "hash": "541141fa2ee191a88f24a3219fff024e",
+    "size": 327428481
+  },
+  "bandit-v2/checkpoint-multi.ckpt": {
+    "path": "bandit-v2/checkpoint-multi.ckpt",
+    "url": "https://huggingface.co/jsoncx/bandit-v2/resolve/fde0ff714b879259f3f436a0eb9046626f82a880/checkpoint-multi.ckpt?download=true",
+    "size": 446680129,
+    "algorithm": "MD5",
+    "hash": "fea2868787551b0cff36cfcf7c3622a3",
+    "fallbackUrls": [
+      "https://zenodo.org/records/12701995/files/checkpoint-multi.ckpt?download=1"
+    ],
+    "sha256": "abcfccf65446752a057f4a302c941479a54b7560ebf8d7bca039d2ea98e64cfc"
+  },
+  "mrx/adapted_loudness.pth": {
+    "path": "mrx/adapted_loudness.pth",
+    "url": "https://media.githubusercontent.com/media/merlresearch/cocktail-fork-separation/19b3de827ebc4bfb014570cf92dd32b4ee3b6921/checkpoints/adapted_loudness_mrx_pre_trained_weights.pth",
+    "size": 122317657,
+    "algorithm": "SHA256",
+    "hash": "4bc4eabf554cf980d3328a2c45452c47beca1ca76324d75583e7587377dce409"
+  }
+}

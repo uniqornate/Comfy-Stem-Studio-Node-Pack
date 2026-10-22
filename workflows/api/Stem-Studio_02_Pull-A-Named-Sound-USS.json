@@ -1,0 +1,40 @@
+{
+  "1": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "your-audio-or-video.wav"
+    }
+  },
+  "2": {
+    "class_type": "StemStudioExtract",
+    "inputs": {
+      "audio": [
+        "1",
+        0
+      ],
+      "target": "Walk, footsteps",
+      "threshold": 0.1,
+      "auto_threshold": true
+    }
+  },
+  "10": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        0
+      ],
+      "filename_prefix": "StemStudio/target"
+    }
+  },
+  "11": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        1
+      ],
+      "filename_prefix": "StemStudio/remainder"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "1": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "your-audio-or-video.wav"
+    }
+  },
+  "2": {
+    "class_type": "StemStudioGuideSep",
+    "inputs": {
+      "audio": [
+        "1",
+        0
+      ],
+      "reference": [
+        "8",
+        0
+      ],
+      "steps": 8,
+      "reference_offset": 0
+    }
+  },
+  "8": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "your-reference-hum.wav"
+    }
+  },
+  "10": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        0
+      ],
+      "filename_prefix": "StemStudio/guidesep-target"
+    }
+  },
+  "11": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        1
+      ],
+      "filename_prefix": "StemStudio/guidesep-remainder"
+    }
+  }
+}

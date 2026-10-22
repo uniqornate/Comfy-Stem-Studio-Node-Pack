@@ -1,0 +1,209 @@
+{
+ "brush": {
+  "folder": "stable-audio-3",
+  "models": {
+   "small": {
+    "files": [
+     {
+      "path": "stable_audio_3_small_sfx.safetensors",
+      "name": "Stable Audio 3 Small-SFX",
+      "url": "https://huggingface.co/Comfy-Org/stable-audio-3/resolve/75aad8836271cb5a5123fb58304fae5d3bb4b0f9/checkpoints/stable_audio_3_small_sfx.safetensors",
+      "size": 2270384940,
+      "sha256": "ed9cf1b6172f1a8c2921a9560c21109ff3239524563ced9dce6dcdef41e2f515"
+     },
+     {
+      "path": "t5gemma_b_b_ul2.safetensors",
+      "name": "T5Gemma text encoder",
+      "url": "https://huggingface.co/Comfy-Org/stable-audio-3/resolve/75aad8836271cb5a5123fb58304fae5d3bb4b0f9/text_encoders/t5gemma_b_b_ul2.safetensors",
+      "size": 1187264003,
+      "sha256": "1e1eba25be8872edb0d3c6335c6658fd6388e7b14b60da6e454e404cfcd8150e"
+     }
+    ]
+   },
+   "medium": {
+    "files": [
+     {
+      "path": "stable_audio_3_medium.safetensors",
+      "name": "Stable Audio 3 Medium",
+      "url": "https://huggingface.co/Comfy-Org/stable-audio-3/resolve/75aad8836271cb5a5123fb58304fae5d3bb4b0f9/checkpoints/stable_audio_3_medium.safetensors",
+      "size": 9222116660,
+      "sha256": "48d9c65e290e7bcd5194e0633bfc2424a59ee9683f5c2d58762d997b7d8ce0b5"
+     },
+     {
+      "path": "t5gemma_b_b_ul2.safetensors",
+      "name": "T5Gemma text encoder",
+      "url": "https://huggingface.co/Comfy-Org/stable-audio-3/resolve/75aad8836271cb5a5123fb58304fae5d3bb4b0f9/text_encoders/t5gemma_b_b_ul2.safetensors",
+      "size": 1187264003,
+      "sha256": "1e1eba25be8872edb0d3c6335c6658fd6388e7b14b60da6e454e404cfcd8150e"
+     }
+    ]
+   }
+  }
+ },
+ "music": {
+  "folder": "htdemucs-6s",
+  "files": [
+   {
+    "path": "htdemucs_6s.th",
+    "name": "HTDemucs 6-stem",
+    "url": "https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/5c90dfd2-34c22ccb.th",
+    "size": 54996327,
+    "sha256": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+   }
+  ]
+ },
+ "mmaudio": {
+  "folder": "mmaudio",
+  "files": [
+   {
+    "path": "mmaudio_large_44k_v2_fp16.safetensors",
+    "name": "MMAudio large 44k v2",
+    "url": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/5984623e6b436818c6ff287ef6eec93e3e05aa3f/mmaudio_large_44k_v2_fp16.safetensors",
+    "size": 2061198424,
+    "sha256": "a61378951ba4e8bfde2e977c0ad8211a7e02e1e92fd6a5b1c258a6464c1d102f"
+   },
+   {
+    "path": "mmaudio_vae_44k_fp16.safetensors",
+    "name": "MMAudio VAE",
+    "url": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/5984623e6b436818c6ff287ef6eec93e3e05aa3f/mmaudio_vae_44k_fp16.safetensors",
+    "size": 610966060,
+    "sha256": "2598189f081bd10c86975106e5b6e2490168667429a75b52d77671283f245649"
+   },
+   {
+    "path": "mmaudio_synchformer_fp16.safetensors",
+    "name": "Synchformer",
+    "url": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/5984623e6b436818c6ff287ef6eec93e3e05aa3f/mmaudio_synchformer_fp16.safetensors",
+    "size": 474981098,
+    "sha256": "b8d05128c76da6ee88720a89d25a5f86c603589883d02b53f563c3c66afe3581"
+   },
+   {
+    "path": "apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors",
+    "name": "DFN5B CLIP",
+    "url": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/5984623e6b436818c6ff287ef6eec93e3e05aa3f/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors",
+    "size": 1973509450,
+    "sha256": "d8ad903a79adc2b29bacfeedabfa3d78b03d36d3b4dcb885c0649fe8c5d763cb"
+   },
+   {
+    "path": "nvidia/bigvgan_v2_44khz_128band_512x/bigvgan_generator.pt",
+    "name": "BigVGAN v2 vocoder",
+    "url": "https://huggingface.co/nvidia/bigvgan_v2_44khz_128band_512x/resolve/95a9d1dcb12906c03edd938d77b9333d6ded7dfb/bigvgan_generator.pt",
+    "size": 489041291,
+    "sha256": "d9fe7ec6bd0b44ed9d66973d5012d8181c1570b01e5c72df51973e241dccd357"
+   },
+   {
+    "path": "nvidia/bigvgan_v2_44khz_128band_512x/config.json",
+    "name": "BigVGAN config",
+    "url": "https://huggingface.co/nvidia/bigvgan_v2_44khz_128band_512x/resolve/95a9d1dcb12906c03edd938d77b9333d6ded7dfb/config.json",
+    "size": 1403,
+    "sha256": "65b7f487bfaf15256056a75f6667ef5f640214c981922a111927873705ea4ddb"
+   }
+  ],
+  "imports": [
+   "librosa",
+   "torchdiffeq",
+   "einops",
+   "timm",
+   "omegaconf",
+   "open_clip",
+   "accelerate",
+   "ftfy"
+  ],
+  "node": {
+   "folder": "ComfyUI-MMAudio",
+   "archive": "https://codeload.github.com/kijai/ComfyUI-MMAudio/zip/8eaeb72edc3aaf2059b57f2d96a1f6f689f19ae2",
+   "commit": "8eaeb72edc3aaf2059b57f2d96a1f6f689f19ae2",
+   "files": {
+    ".gitattributes": "dfe0770424b2a19faf507a501ebfc23be8f54e7b",
+    ".github/workflows/publish.yml": "1ad82c7afd489bd1e3bb2c8e2c492d33e3f462b2",
+    ".gitignore": "d75870d1b348a0603e9dd937344d2a1ee3797575",
+    "LICENSE": "086f821dd945c2f8ab0fc804063139253ccfa22b",
+    "__init__.py": "f4e09a981f5d04fa9bca70cd103131775e9514da",
+    "configs/DFN5B-CLIP-ViT-H-14-384.json": "a1b1df6bd4addb1ce6be5b8af094c3dfc5e1bee7",
+    "configs/config.json": "cdb2136fb5c684c0539e8ef0e65fb89a3d3af5e6",
+    "configs/nvidia_bigvgan_v2_config.json": "8f02b5a20c50d4835e5f16dd881877d0904dc535",
+    "example_workflows/mmaudio_test.json": "94ea5a3dd5719280048a3b5e7e18a0f9e0de9ba0",
+    "mmaudio/__init__.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "mmaudio/eval_utils.py": "b69ab836b1996eb0237f43b6710ed20dffacb402",
+    "mmaudio/ext/__init__.py": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+    "mmaudio/ext/autoencoder/__init__.py": "e5a876391c1e48970e93ff45f212f21f86d4d0c9",
+    "mmaudio/ext/autoencoder/autoencoder.py": "123050dba89403a8ef378e2444d0318551240017",
+    "mmaudio/ext/autoencoder/edm2_utils.py": "a18ffba5cc42214fddf1300034be2eff2760025c",
+    "mmaudio/ext/autoencoder/vae.py": "efa373182f150f01221ad291b84b58937104709a",
+    "mmaudio/ext/autoencoder/vae_modules.py": "3dbd51742d7713e0203d0494866c5f6604683c30",
+    "mmaudio/ext/bigvgan/LICENSE": "e9663595cc28938f88d6299acd3ba791542e4c0c",
+    "mmaudio/ext/bigvgan/__init__.py": "00f13e9bf9ccb0b4ec37e1c70869f9a9a538871f",
+    "mmaudio/ext/bigvgan/activations.py": "61f2808a5466b3cf4d041059700993af5527dd29",
+    "mmaudio/ext/bigvgan/alias_free_torch/__init__.py": "a2318b63198250856809c0cb46210a4147b829bc",
+    "mmaudio/ext/bigvgan/alias_free_torch/act.py": "028debd697dd60458aae75010057df038bd3518a",
+    "mmaudio/ext/bigvgan/alias_free_torch/filter.py": "7ad6ea87c1f10ddd94c544037791d7a4634d5ae1",
+    "mmaudio/ext/bigvgan/alias_free_torch/resample.py": "750e6c3402cc5ac939c4b9d075246562e0e1d1a7",
+    "mmaudio/ext/bigvgan/bigvgan.py": "7a72a204c5b8cff45c08d0495990319a339d0937",
+    "mmaudio/ext/bigvgan/bigvgan_vocoder.yml": "d4db31ec45336e757d94d5099ed16cb3c906c24a",
+    "mmaudio/ext/bigvgan/env.py": "b8be238d4db710c8c9a338d336baea0138f18d1f",
+    "mmaudio/ext/bigvgan/incl_licenses/LICENSE_1": "5afae394d6b37da0e12ba6b290d2512687f421ac",
+    "mmaudio/ext/bigvgan/incl_licenses/LICENSE_2": "322b758863c4219be68291ae3826218baa93cb4c",
+    "mmaudio/ext/bigvgan/incl_licenses/LICENSE_3": "56ee3c8c4cc2b4b32e0975d17258f9ba515fdbcc",
+    "mmaudio/ext/bigvgan/incl_licenses/LICENSE_4": "48fd1a1ba8d81a94b6c7d1c2ff1a1f307cc5371d",
+    "mmaudio/ext/bigvgan/incl_licenses/LICENSE_5": "01ae5538e6b7c787bb4f5d6f2cd9903520d6e465",
+    "mmaudio/ext/bigvgan/models.py": "3e2b7d64ee04ea79401a7f6af7bcb9379661c0c3",
+    "mmaudio/ext/bigvgan/utils.py": "aff7e653533d3390756c53a0215801b06cc924b5",
+    "mmaudio/ext/bigvgan_v2/LICENSE": "4c78361c86d4f685117d60d6623e2197fcfed706",
+    "mmaudio/ext/bigvgan_v2/__init__.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "mmaudio/ext/bigvgan_v2/activations.py": "4f08ddab5b55d6dcaf3e968af98889e0770c44f5",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/__init__.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/activation1d.py": "fbc0fd8f28a37ad949fbdb9832f51b5b933c6ff2",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/anti_alias_activation.cpp": "c5651f77143bd678169eb11564a7cf7a7969a59e",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/anti_alias_activation_cuda.cu": "8c442334869fe72d639ec203fa4fac07f96a0ee1",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/compat.h": "25818b2edf4cb0dc9130e62c7c4de8d16a01baa5",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/load.py": "ca5d01de398249e75e9e2298958764acb436edba",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/cuda/type_shim.h": "5db7e8a397e982d4d30d16ab6060814b98b7ab83",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/torch/__init__.py": "8f756ed83f87f9839e457b240f60469bc187707d",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/torch/act.py": "1dfb03b1ee0bf1d4690ddad79ce5c567f173b198",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/torch/filter.py": "0fa35b0d5ddf8d6cb04cd9d47364ca033cebcd32",
+    "mmaudio/ext/bigvgan_v2/alias_free_activation/torch/resample.py": "2b7ca1002f427d3685f25e14f55e399ca7246e5b",
+    "mmaudio/ext/bigvgan_v2/bigvgan.py": "b993f1b2df4d504607246285f94fb1a0bfe8d71f",
+    "mmaudio/ext/bigvgan_v2/env.py": "b8be238d4db710c8c9a338d336baea0138f18d1f",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_1": "5afae394d6b37da0e12ba6b290d2512687f421ac",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_2": "322b758863c4219be68291ae3826218baa93cb4c",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_3": "56ee3c8c4cc2b4b32e0975d17258f9ba515fdbcc",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_4": "48fd1a1ba8d81a94b6c7d1c2ff1a1f307cc5371d",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_5": "01ae5538e6b7c787bb4f5d6f2cd9903520d6e465",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_6": "2569ec0b6c85f94f3cd071ba16e9028ccf156be2",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_7": "c37bdaf99c6921f5849425d546069e972f52d7fa",
+    "mmaudio/ext/bigvgan_v2/incl_licenses/LICENSE_8": "ab3d7ffe795779f54e339078e4e752ad9019aae8",
+    "mmaudio/ext/bigvgan_v2/utils.py": "3b1d41670fa1ee257b2ed22c61086ba7a32c7cb0",
+    "mmaudio/ext/mel_converter.py": "6fc589c9468e077fc580965db250fd502e229672",
+    "mmaudio/ext/rotary_embeddings.py": "1ea9d56278cb68b7577ed13148227c30ed98fd02",
+    "mmaudio/ext/stft_converter.py": "62922067ef3b1d3b8727ec39e7d664ccb304d9fe",
+    "mmaudio/ext/stft_converter_mel.py": "f6b32d4cb9a23cd74f723e7d8307fd82fa1abba0",
+    "mmaudio/ext/synchformer/LICENSE": "2f70bf24b6f45f458998bdf5746376c4832352ea",
+    "mmaudio/ext/synchformer/__init__.py": "46ae4ff58457684d00454b9a7ff533177cf68898",
+    "mmaudio/ext/synchformer/divided_224_16x4.yaml": "f9d20b76302a8af7928391643bd4b2d184e970aa",
+    "mmaudio/ext/synchformer/motionformer.py": "dd1f2330615a5d9f3a1773f8498bf39bd6ec02de",
+    "mmaudio/ext/synchformer/synchformer.py": "43767156669af3d48f7b75167dcb50f54d560304",
+    "mmaudio/ext/synchformer/utils.py": "a797eb9c66f04b7c29934bfc384c935cdf441a62",
+    "mmaudio/ext/synchformer/video_model_builder.py": "9b3582fa956046c0f020fdde9c2c6bd3a0aa1f8d",
+    "mmaudio/ext/synchformer/vit_helper.py": "6af730a135bf49240ec439c81c9ad0aa5c9a505e",
+    "mmaudio/model/__init__.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "mmaudio/model/embeddings.py": "297feb4d2c79d306771f5436dbd4ada1a976b3bc",
+    "mmaudio/model/flow_matching.py": "d3f491a3fa47bcba0a6eeb1cebdc1eec4258a6cd",
+    "mmaudio/model/low_level.py": "c8326a8bec99f1be08b92e76fda4b59e777b39d2",
+    "mmaudio/model/networks.py": "76d2fe1439e3688afeb28e5320b16d51fd4f5655",
+    "mmaudio/model/sequence_config.py": "14269014dc401b4751d172466813a935fddda6c1",
+    "mmaudio/model/transformer_layers.py": "c3ac849a37b52329406d86b12f2f5c9ddd0e9823",
+    "mmaudio/model/utils/__init__.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "mmaudio/model/utils/distributions.py": "1d526a5b0b3dd2ae556d806a3397e1cf43c07fb9",
+    "mmaudio/model/utils/features_utils.py": "2157d14bc2fd9e7e72397c620b39555aca92d7ba",
+    "mmaudio/model/utils/parameter_groups.py": "89c3993083f470dfc6b18a5c90f908ea37bde12b",
+    "mmaudio/model/utils/sample_utils.py": "d44cf278e0b464bc6ac7e240fcab4a23895caa2f",
+    "mmaudio/utils/__init__.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "mmaudio/utils/dist_utils.py": "28684263c8b0ede6f6b600f1087d767dbe972281",
+    "mmaudio/utils/download_utils.py": "09c48f5acd90e277a7b80d5ddddb37566948361c",
+    "nodes.py": "5e92dfe1c0025f3426185f988f89e88ccd553d71",
+    "pyproject.toml": "b3d05bf665a5da4024a290669b7a21236d47e8d8",
+    "readme.md": "2ca9f69d4303baa28ca0ceafd71183904450f0f7",
+    "requirements.txt": "7b37832a8565dd8df56c552d8799bed36a913bd2"
+   }
+  }
+ }
+}

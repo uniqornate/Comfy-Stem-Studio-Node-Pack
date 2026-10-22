@@ -1,0 +1,15 @@
+{
+  "source": "User-provided Comfy org brand assets",
+  "assets": [
+    {
+      "source": "logo.svg",
+      "file": "comfy-wordmark.svg",
+      "sha256": "183259651a97e9e04ce5c4cdcfb6abc66712f6aa3f4c7b59c2e1a9ea6b5b8b2d"
+    },
+    {
+      "source": "Icon ink.svg",
+      "file": "comfy-icon.svg",
+      "sha256": "2afbd976550c91800a13807c3b7315cc50f280afc56be53c9fe22554c4c24a64"
+    }
+  ]
+}

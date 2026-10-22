@@ -1,0 +1,39 @@
+{
+  "1": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "your-audio-or-video.wav"
+    }
+  },
+  "2": {
+    "class_type": "StemStudioSAM",
+    "inputs": {
+      "audio": [
+        "1",
+        0
+      ],
+      "description": "footsteps",
+      "model_variant": "small-tv"
+    }
+  },
+  "10": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        0
+      ],
+      "filename_prefix": "StemStudio/sam-target"
+    }
+  },
+  "11": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        1
+      ],
+      "filename_prefix": "StemStudio/sam-remainder"
+    }
+  }
+}

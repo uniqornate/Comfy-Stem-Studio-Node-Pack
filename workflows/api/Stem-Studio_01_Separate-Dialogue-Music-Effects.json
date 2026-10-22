@@ -1,0 +1,49 @@
+{
+  "1": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "your-audio-or-video.wav"
+    }
+  },
+  "2": {
+    "class_type": "StemStudioSeparate",
+    "inputs": {
+      "audio": [
+        "1",
+        0
+      ],
+      "segment_seconds": 12,
+      "model": "mrx"
+    }
+  },
+  "10": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        0
+      ],
+      "filename_prefix": "StemStudio/dialogue"
+    }
+  },
+  "11": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        1
+      ],
+      "filename_prefix": "StemStudio/music"
+    }
+  },
+  "12": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        2
+      ],
+      "filename_prefix": "StemStudio/effects"
+    }
+  }
+}
