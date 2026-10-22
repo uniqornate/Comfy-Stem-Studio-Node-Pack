@@ -9,7 +9,7 @@ type Video = { value: number; onChange: (value: number) => void; onPreview?: (va
 // preview sits behind the timeline, with Ctrl held the opacity of that video (green ring).
 export function WaveformKnob({ value, onChange, onPreview, rowValue, onRowChange, onRowPreview, onSizing, video }: { value: number; onChange: (value: number) => void; onPreview?: (value: number) => void; rowValue: number; onRowChange: (value: number) => void; onRowPreview?: (value: number) => void; onSizing?: (active: boolean) => void; video?: Video }) {
   const drag = useRef<{ y: number; value: number; mode: Mode } | null>(null);
-  const videoValue = video?.value ?? 0.4;
+  const videoValue = video?.value ?? 0.25;
   const current = useRef({ wave: value, row: rowValue, video: videoValue }), frame = useRef<number | null>(null), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [display, setDisplay] = useState({ wave: value, row: rowValue, video: videoValue }), [held, setHeld] = useState({ alt: false, ctrl: false });
   const callbacks = useRef({ onChange, onPreview, onRowChange, onRowPreview, onSizing, video }); callbacks.current = { onChange, onPreview, onRowChange, onRowPreview, onSizing, video };
@@ -39,7 +39,7 @@ export function WaveformKnob({ value, onChange, onPreview, rowValue, onRowChange
     onPointerDown={event => { if (event.button !== 0) return; const next = modeOf(event); drag.current = { y: event.clientY, value: current.current[next], mode: next }; if (next === 'row') callbacks.current.onSizing?.(true); event.currentTarget.setPointerCapture(event.pointerId); }}
     onPointerMove={event => { if (drag.current) update(drag.current.mode, drag.current.value + (drag.current.y - event.clientY) / 100); }} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
     onWheel={event => { const next = modeOf(event); if (next === 'row') callbacks.current.onSizing?.(true); update(next, current.current[next] + (event.deltaY < 0 ? .05 : -.05)); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => commit(next), 140); }}
-    onDoubleClick={event => { const next = modeOf(event); update(next, next === 'row' ? knobFromRow(ROW_DEFAULT) : next === 'video' ? .4 : .7); commit(next); }}
+    onDoubleClick={event => { const next = modeOf(event); update(next, next === 'row' ? knobFromRow(ROW_DEFAULT) : next === 'video' ? .25 : .7); commit(next); }}
     onKeyDown={event => { const next = modeOf(event), now = current.current[next]; const target = event.key === 'Home' ? MIN[next] : event.key === 'End' ? 1 : ['ArrowUp', 'ArrowRight'].includes(event.key) ? now + .05 : ['ArrowDown', 'ArrowLeft'].includes(event.key) ? now - .05 : null; if (target !== null) { event.preventDefault(); update(next, target); commit(next); } }}>
     <span className="knob-dial" style={{ transform: `rotate(${-135 + fraction * 270}deg)` }}><i/></span>
   </div>;

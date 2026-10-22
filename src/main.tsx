@@ -72,7 +72,7 @@ function App() {
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   // The preview can sit behind the timeline (arrange view only): fitted to the timeline's rectangle, faded by an opacity.
   const [previewBackdrop, setPreviewBackdrop] = useState(() => { try { return localStorage.getItem('previewBackdrop') === 'on'; } catch { return false; } });
-  const [backdropOpacity, setBackdropOpacity] = useState(() => { try { const value = parseFloat(localStorage.getItem('backdropOpacity') || ''); return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.4; } catch { return 0.4; } });
+  const [backdropOpacity, setBackdropOpacity] = useState(() => { try { const value = parseFloat(localStorage.getItem('backdropOpacity') || ''); return Number.isFinite(value) && value !== 0.4 ? Math.max(0, Math.min(1, value)) : 0.25; } catch { return 0.25; } });
   const [backdropRect, setBackdropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   useEffect(() => { try { localStorage.setItem('previewBackdrop', previewBackdrop ? 'on' : 'off'); localStorage.setItem('backdropOpacity', String(backdropOpacity)); } catch {} }, [previewBackdrop, backdropOpacity]);
   const [workspaceShare, setWorkspaceShare] = useState(0.46);
