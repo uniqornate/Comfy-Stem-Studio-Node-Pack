@@ -151,9 +151,9 @@ function App() {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       const modalOpen = !!document.querySelector('.modal-backdrop');
-      // Tab switches between the normal view and the arrange view and no longer walks through the controls. In dialogs and
-      // text fields it keeps its usual job, so forms stay usable.
-      if (event.key === 'Tab' && !event.ctrlKey && !event.altKey && !event.metaKey && playbackKeyApplies({ target: event.target, modalOpen })) { event.preventDefault(); event.stopImmediatePropagation(); if (!event.repeat) setTimelineExpanded(value => !value); return; }
+      // Tab switches between the normal view and the arrange view and never walks through the controls, in dialogs and text
+      // fields too. It only switches the view on the workspace itself.
+      if (event.key === 'Tab' && !event.ctrlKey && !event.altKey && !event.metaKey) { event.preventDefault(); event.stopImmediatePropagation(); if (!event.repeat && playbackKeyApplies({ target: event.target, modalOpen })) setTimelineExpanded(value => !value); return; }
       if (event.code === 'Space' && !playbackKeyApplies({ target: event.target, modalOpen })) return;
       if (event.key === '?' && !event.ctrlKey && !event.altKey && helpKeyApplies({ target: event.target, modalOpen, helpOpen: !!document.querySelector('.shortcuts-modal') })) { event.preventDefault(); setShortcutsOpen(open => !open); return; }
       if (event.ctrlKey && event.key === 'Enter' && event.target instanceof Element && event.target.closest('.brush-modal')) return;

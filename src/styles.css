@@ -415,8 +415,6 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 /* Channels slide in with a spring, on transform and opacity only; brush-all highlight */
 @keyframes row-spring{from{opacity:0;transform:translateY(-16px) scale(.985)}to{opacity:1;transform:none}}
 .timeline-track.is-entering>.track-controls,.timeline-track.is-entering>.waveform-lane{animation:row-spring 620ms var(--enter-delay,0ms) both;animation-timing-function:linear(0,.2 5%,.55 11%,.92 19%,1.1 28%,1.12 34%,1.05 44%,.99 56%,1.005 70%,1);will-change:transform,opacity}
-.multitrack.is-brush-all .track-ruler::before,.multitrack.is-brush-all .waveform-lane::before{content:'';position:absolute;inset:0;background:#f2ff5922;box-shadow:inset 0 0 0 1px #f2ff5966;pointer-events:none;z-index:1}
-.multitrack.is-brush-all .waveform-lane,.multitrack.is-brush-all .track-ruler{cursor:copy}
 
 /* Separator: Single/Batch tabs, compact controls, linear progress */
 .mode-tabs{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:#ffffff06}
@@ -491,3 +489,18 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 
 .all-muted{padding:2px 9px;border:1px solid #f2ff5966;border-radius:999px;background:#f2ff5914;color:var(--yellow);font:9px Consolas,monospace;letter-spacing:.4px}
 .all-muted:hover{background:#f2ff5926}
+
+/* Skeleton of the channel a whole-timeline brush would create */
+.brush-ghost{--track:#f2ff59}
+.brush-ghost .track-controls{display:flex;flex-direction:column;justify-content:center;gap:7px;border-left-style:dashed;pointer-events:none}
+.brush-ghost .ghost-bar,.brush-ghost .ghost-dot,.brush-ghost .ghost-wave{position:relative;overflow:hidden;background:#ffffff0f;border-radius:5px}
+.brush-ghost .ghost-name{height:11px;width:58%}
+.brush-ghost .ghost-row{display:flex;gap:6px;align-items:center}
+.brush-ghost .ghost-row .ghost-bar{width:22px;height:20px}
+.brush-ghost .ghost-dot{width:20px;height:20px;border-radius:50%}
+.brush-ghost .waveform-lane{cursor:copy}
+.brush-ghost .ghost-wave{position:absolute;left:0;right:0;top:calc(var(--row,var(--row-height,68px)) * .07);bottom:calc(var(--row,var(--row-height,68px)) * .07);display:flex;align-items:center;justify-content:center;border:1px dashed color-mix(in srgb,var(--track) 45%,transparent);border-radius:4px;background:repeating-linear-gradient(90deg,#ffffff0d 0 3px,transparent 3px 8px)}
+.brush-ghost .ghost-wave span{position:relative;z-index:1;font-size:10px;color:var(--muted);letter-spacing:.3px}
+.brush-ghost .ghost-bar::after,.brush-ghost .ghost-dot::after,.brush-ghost .ghost-wave::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffff20,transparent);transform:translateX(-100%);animation:ghost-sweep 1.3s ease-in-out infinite}
+@keyframes ghost-sweep{to{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){.brush-ghost .ghost-bar::after,.brush-ghost .ghost-dot::after,.brush-ghost .ghost-wave::after{animation:none}}
