@@ -11,7 +11,7 @@ import { StemTimeline } from './StemTimeline';
 import { workspaceTop } from './timeline-geometry.mjs';
 import { preferences } from './workspace-preferences.mjs';
 import { ResourceMonitor } from './ResourceMonitor';
-import { Grain } from './Grain';
+import { Grain } from './GrainLayer';
 import { MediaTransport } from './media-transport.mjs';
 import { TooltipLayer } from './Tooltip';
 import { PreviewFooter } from './PreviewFooter';
