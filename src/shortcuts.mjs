@@ -5,5 +5,5 @@ export const SHORTCUTS = [
   ['Clips', [['Drag header', 'Move a clip'], ['Alt+Drag header', 'Copy a clip'], ['Ctrl+C / Ctrl+V', 'Copy a clip, paste at the playhead'], ['Ctrl+B', 'Split at the playhead'], ['Ctrl+Z / Ctrl+Y', 'Undo / redo']]],
   ['Brush', [['B', 'Turn brush on or off'], ['Drag', 'Choose a region to paint'], ['Alt+Click', 'Brush the whole timeline (shows a new channel)'], ['Esc', 'Leave brush mode']]],
   ['Timeline', [['Middle-drag', 'Pan the timeline'], ['Right-click a take', 'Close it'], ['Ctrl+Wheel', 'Scroll the take tabs']]],
-  ['General', [['?', 'Show this list'], ['Esc', 'Close a dialog']]],
+  ['General', [['F11', 'Full screen'], ['?', 'Show this list'], ['Esc', 'Close a dialog']]],
 ];

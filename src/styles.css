@@ -541,3 +541,7 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 .grain-layer.is-animated .grain-tiles{will-change:transform;animation:grain-shift var(--grain-step,1.25s) steps(1) infinite}
 @keyframes grain-shift{0%{transform:translate3d(0,0,0)}10%{transform:translate3d(-93px,61px,0)}20%{transform:translate3d(71px,-117px,0)}30%{transform:translate3d(-37px,-83px,0)}40%{transform:translate3d(109px,29px,0)}50%{transform:translate3d(-121px,-23px,0)}60%{transform:translate3d(47px,103px,0)}70%{transform:translate3d(-67px,-107px,0)}80%{transform:translate3d(97px,73px,0)}90%{transform:translate3d(-19px,119px,0)}100%{transform:translate3d(0,0,0)}}
 @media(prefers-reduced-motion:reduce){.grain-layer.is-animated .grain-tiles{animation:none}}
+
+/* Mouse icons in the shortcut list */
+.shortcut-group kbd.is-mouse{display:inline-flex;align-items:center;gap:5px;color:var(--text)}
+.shortcut-group kbd .mouse-icon{color:var(--tone);flex-shrink:0}
