@@ -11,6 +11,7 @@ import { StemTimeline } from './StemTimeline';
 import { workspaceTop } from './timeline-geometry.mjs';
 import { preferences } from './workspace-preferences.mjs';
 import { ResourceMonitor } from './ResourceMonitor';
+import { GrainTuner } from './GrainTuner';
 import { MediaTransport } from './media-transport.mjs';
 import { TooltipLayer } from './Tooltip';
 import { PreviewFooter } from './PreviewFooter';
@@ -553,6 +554,7 @@ function App() {
     </ModelModal>}
     {brushRegion && <BrushModal region={brushRegion} engine={engine} profile={profile} busy={jobBusy || !canSeparate} close={() => { setBrushRegion(null); transport.clearSelection(); }} hasVideo={!!source && !sourceIsAudio} refreshEngine={refreshEngine} run={(prompt, choice) => void runBrush(prompt, choice)}/>}
     {previewMenu && <div className="timeline-context-menu preview-menu" role="menu" aria-label="Preview actions" style={{ left: previewMenu.x / pageZoom(), top: previewMenu.y / pageZoom() }}>{externalPreview ? <button role="menuitem" onClick={() => void bringPreviewBack()}><Clapperboard size={14}/> Bring the preview back</button> : <button role="menuitem" onClick={() => void sendPreview()}><Clapperboard size={14}/> Send preview to another display</button>}</div>}
+    <GrainTuner/>
     {shortcutsOpen && <ShortcutsPanel close={() => setShortcutsOpen(false)} usage={usage}/>}
     {projectsOpen && <div className="modal-backdrop"><section className="connection-modal projects-modal" role="dialog" aria-modal="true" aria-labelledby="projects-title">
       <div className="modal-top"><span className="eyebrow"><FolderOpen size={14}/> PROJECTS</span><button className="icon-button" disabled={projectBusy} onClick={() => setProjectsOpen(false)} aria-label="Close projects"><X size={17}/></button></div>

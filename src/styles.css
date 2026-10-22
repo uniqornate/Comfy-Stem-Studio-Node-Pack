@@ -530,3 +530,21 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 
 /* The page's own scrollbar is hidden; the timeline keeps its thin ones */
 html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+
+/* Preview canvas: the letterbox bars take the theme colour and a quiet dot matrix instead of video black */
+.studio-workspace .preview-panel:not(.floating-preview) .preview-stage{background-color:var(--ink);background-image:radial-gradient(ellipse at center,transparent 45%,#211927cc 100%),radial-gradient(circle,#ffffff2e 0 .9px,transparent 1.3px);background-size:100% 100%,16px 16px;background-position:center}
+.studio-workspace .preview-panel:not(.floating-preview) .preview-stage video{background:transparent}
+
+/* Film grain over the whole window (one tiled noise image; the animation is a transform, so nothing repaints) */
+.grain-layer{position:fixed;inset:-256px;z-index:9000;pointer-events:none;background-repeat:repeat}
+.grain-layer.is-animated{will-change:transform;animation:grain-shift var(--grain-step,1.25s) steps(1) infinite}
+@keyframes grain-shift{0%{transform:translate3d(0,0,0)}10%{transform:translate3d(-93px,61px,0)}20%{transform:translate3d(71px,-117px,0)}30%{transform:translate3d(-37px,-83px,0)}40%{transform:translate3d(109px,29px,0)}50%{transform:translate3d(-121px,-23px,0)}60%{transform:translate3d(47px,103px,0)}70%{transform:translate3d(-67px,-107px,0)}80%{transform:translate3d(97px,73px,0)}90%{transform:translate3d(-19px,119px,0)}100%{transform:translate3d(0,0,0)}}
+@media(prefers-reduced-motion:reduce){.grain-layer.is-animated{animation:none}}
+.grain-tuner{position:fixed;left:16px;bottom:16px;z-index:9100;width:270px;display:grid;gap:8px;padding:12px 14px;border:1px solid #ffffff22;border-radius:12px;background:#352e3bf2;box-shadow:0 12px 32px #0007;font-size:11px;color:var(--text)}
+.grain-tuner header{display:flex;align-items:center;gap:8px}.grain-tuner header strong{font-size:12px}.grain-tuner header small{flex:1;color:var(--dim);font-size:9px}
+.grain-tuner .grain-row{display:grid;grid-template-columns:78px 1fr 38px;align-items:center;gap:8px;color:var(--muted)}
+.grain-tuner .grain-row input[type=range]{accent-color:var(--yellow);width:100%;min-width:0}
+.grain-tuner .grain-row input[type=checkbox]{justify-self:start;accent-color:var(--yellow)}
+.grain-tuner .grain-row select{grid-column:2/4;border:1px solid var(--border);border-radius:7px;background:var(--ink);color:var(--text);padding:4px 6px;color-scheme:dark}
+.grain-tuner .grain-row output{font:10px Consolas,monospace;text-align:right}
+.grain-tuner footer{display:flex;gap:8px;justify-content:flex-end;margin-top:2px}
