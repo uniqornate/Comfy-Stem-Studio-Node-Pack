@@ -34,8 +34,9 @@ class NativeAdapterTests(unittest.TestCase):
                 self.copied.append(source); return stream(source.type)
             def mux(inner, value): self.muxed.append((value.payload, value.dts, value.stream.type))
         def open_media(path, mode='r', **kwargs):
-            if mode == 'w': self.assertEqual(kwargs['format'], 'matroska'); return Output()
+            if mode == 'w': self.formats.append(kwargs['format']); return Output()
             return track if str(path).endswith('.flac') else original
+        self.formats = []
         modules = {}
         for name in ['comfy_api', 'comfy_api.latest', 'comfy_api.latest._input', 'comfy_api.latest._input_impl', 'comfy_api.latest._input_impl.video_types', 'comfy', 'comfy.model_management', 'comfy.utils', 'av', 'numpy']:
             modules[name] = ModuleType(name)
@@ -64,9 +65,14 @@ class NativeAdapterTests(unittest.TestCase):
         self.assertEqual([item[1] for item in self.muxed], [0, 40, 50, 70, 80])
         self.assertGreater(self.checks, 0)
 
+    def test_mp4_and_mkv_containers_are_chosen_by_the_save_format(self):
+        module = self.load(); video = module.StemVideo(self.source, self.tracks, 'tracks')
+        video.save_to('/fixture/new.mp4', format='mp4', codec='auto'); video.save_to('/fixture/new.mkv', format='mkv', codec='auto')
+        self.assertEqual(self.formats, ['mp4', 'matroska'])
+
     def test_incompatible_native_save_overrides_fail_without_muxing(self):
         module = self.load(); video = module.StemVideo(self.source, self.tracks, 'tracks')
-        for kwargs in [dict(format='mp4'), dict(format='mkv', codec='h264'), dict(format='mkv', crf=18)]:
+        for kwargs in [dict(format='mov'), dict(format='mp4', codec='h264'), dict(format='mkv', crf=18)]:
             with self.assertRaises(ValueError): video.save_to('/fixture/new.mkv', **kwargs)
         self.assertEqual(self.muxed, [])
 

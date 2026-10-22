@@ -24,7 +24,7 @@ function fakeComfy(options = {}) {
         outputs[node] = { audio: [1, 0].map(i => { const filename = `class-${String(i).padStart(3, '0')}-x_00001_.flac`; output.set(`${subfolder}/${filename}`, new Uint8Array([9, 9])); return { filename, subfolder, type: 'output' }; }) };
       }
       if (spec.class_type === 'SaveVideo') {
-        const subfolder = 'StemStudio/Exports'; const filename = `${spec.inputs.filename_prefix.split('/').pop()}_00001_.mkv`;
+        const subfolder = 'StemStudio/Exports'; const filename = `${spec.inputs.filename_prefix.split('/').pop()}_00001_.mp4`;
         output.set(`${subfolder}/${filename}`, new Uint8Array([7, 7, 7])); outputs[node] = { images: [{ filename, subfolder, type: 'output', animated: true }] };
       }
     }
@@ -233,14 +233,14 @@ test('video export stages stems as inputs, runs native SaveVideo and delivers th
   await desktop.separateStems(await desktop.getProfile(), opened.url, { mode: 'stems' });
   const job = await waitFor(desktop, ['complete']);
   const stems = job.stems.map(stem => ({ id: stem.id, label: stem.label, mute: false, solo: false, level: 1 }));
-  const result = await desktop.exportVideo(await desktop.getProfile(), { sourceUrl: opened.url, stems, mode: 'mix', format: 'mkv', duration: 3, sourceName: 'clip.mp4' });
-  assert.equal(result, 'clip-stems.mkv'); assert.equal(saved.at(-1).filename, 'clip-stems.mkv');
+  const result = await desktop.exportVideo(await desktop.getProfile(), { sourceUrl: opened.url, stems, mode: 'mix', format: 'mp4', duration: 3, sourceName: 'clip.mp4' });
+  assert.equal(result, 'clip-stems.mp4'); assert.equal(saved.at(-1).filename, 'clip-stems.mp4');
   const graph = server.state.prompts.at(-1);
   assert.match(graph['1'].inputs.file, /^StemStudio\/inbox\//);
   for (const id of ['10', '11', '12']) assert.match(graph[id].inputs.file, /^StemStudio\/export\/[0-9a-f-]{36}\/\d{3}-[0-9a-f]{8}\.flac$/);
   assert.equal((await desktop.exportStatus()).phase, 'complete');
   server.output.clear();
-  await assert.rejects(desktop.exportVideo(await desktop.getProfile(), { sourceUrl: opened.url, stems, mode: 'mix', format: 'mkv', duration: 3 }), /could not be read/);
+  await assert.rejects(desktop.exportVideo(await desktop.getProfile(), { sourceUrl: opened.url, stems, mode: 'mix', format: 'mp4', duration: 3 }), /could not be read/);
   assert.equal((await desktop.exportStatus()).phase, 'failed');
 });
 

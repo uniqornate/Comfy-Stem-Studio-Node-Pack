@@ -1,4 +1,4 @@
-"""Lossless VIDEO adapter for ComfyUI's native SaveVideo, with no CLI process."""
+"""Lossless VIDEO adapter for ComfyUI's native SaveVideo (MP4 or MKV), with no CLI process."""
 from contextlib import ExitStack
 from fractions import Fraction
 from pathlib import Path
@@ -64,8 +64,10 @@ class StemVideo(VideoInput):
         import comfy.model_management as mm
         from comfy.utils import ProgressBar
         from comfy_api.latest._input_impl.video_types import write_output_metadata
-        if getattr(format, 'value', format) not in [None, 'auto', 'mkv'] or getattr(codec, 'value', codec) not in [None, 'auto']:
-            raise ValueError('Lossless Stem Studio export requires SaveVideo format MKV and codec Auto.')
+        container = getattr(format, 'value', format)
+        if container not in [None, 'auto', 'mp4', 'mkv'] or getattr(codec, 'value', codec) not in [None, 'auto']:
+            raise ValueError('Lossless Stem Studio export requires SaveVideo format MP4 (or MKV) and codec Auto.')
+        muxer = 'matroska' if container == 'mkv' else 'mp4'
         if any(kwargs.get(key) is not None for key in ['crf', 'bit_depth', 'color_space', 'preset']):
             raise ValueError('Re-encoding overrides are not supported for lossless export.')
         source = self.source.get_stream_source()
@@ -80,6 +82,9 @@ class StemVideo(VideoInput):
                 original = stack.enter_context(av.open(source, mode='r'))
                 if not original.streams.video: raise ValueError('Source has no video stream.')
                 video = original.streams.video[0]
+                video_codec = getattr(getattr(video, 'codec_context', None), 'name', None)
+                if muxer == 'mp4' and video_codec and video_codec not in ['h264', 'hevc', 'av1', 'vp9', 'mpeg4']:
+                    raise ValueError(f'MP4 cannot carry {video_codec} video without re-encoding it, and the picture is kept untouched. Use a source encoded as H.264, HEVC, AV1 or VP9.')
                 video_origin = Fraction(video.start_time or 0) * video.time_base
                 original_audio = original.streams.audio[0] if original.streams.audio else None
                 audio_origin = Fraction(original_audio.start_time or 0) * original_audio.time_base if original_audio else video_origin
@@ -90,7 +95,7 @@ class StemVideo(VideoInput):
                     container = stack.enter_context(av.open(track['path'], mode='r'))
                     if not container.streams.audio or container.streams.audio[0].codec_context.name != 'flac': raise ValueError('Export expects FLAC stem files.')
                     sources.append((track, container, container.streams.audio[0]))
-                output = stack.enter_context(av.open(path, mode='w', format='matroska')); opened = True
+                output = stack.enter_context(av.open(path, mode='w', format=muxer)); opened = True
                 write_output_metadata(original, output, metadata)
                 target_video = output.add_stream_from_template(video, opaque=True)
                 progress = ProgressBar(1000)
@@ -121,10 +126,12 @@ class StemVideo(VideoInput):
                                 yield packet
                         streams.append(audio_packets())
                 else:
-                    rate = sources[0][2].sample_rate if sources else 48000
-                    layout = sources[0][2].layout.name if sources else 'mono'
-                    channels = len(sources[0][2].layout.channels) if sources else 1
-                    if any(stream.sample_rate != rate or stream.layout.name != layout for _, _, stream in sources): raise ValueError('Mix channels must have matching rate and layout. Export separate tracks instead.')
+                    # Channels may differ in sample rate and layout (a brush channel next to a separated stem, mono next to stereo):
+                    # the mix is made at the highest rate and the widest layout, and every channel is resampled to it as it is read.
+                    rate = max([stream.sample_rate for _, _, stream in sources] or [48000])
+                    widest = max([stream.layout for _, _, stream in sources], key=lambda item: len(item.channels), default=None)
+                    layout = widest.name if widest else 'mono'
+                    channels = len(widest.channels) if widest else 1
                     target = output.add_stream('flac', rate=rate, layout=layout)
                     target.codec_context.format = 's32'
                     target.metadata['title'] = 'Stem Studio mix'

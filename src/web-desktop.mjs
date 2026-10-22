@@ -501,11 +501,11 @@ export function createWebDesktop(env = {}) {
         exportState.message = 'Queueing SaveVideo in ComfyUI…';
         const result = await runPrompt(graph, { isCancelled: () => exportCancelled, onState: patch => { if (patch.promptId) exportJob = patch.promptId; if (patch.phase) exportState.message = `ComfyUI SaveVideo: ${patch.phase}.`; } });
         if (result.cancelled) throw Error('Video export cancelled.');
-        const files = historyFiles(result.entry, '3').filter(file => /\.mkv$/i.test(file.filename));
-        if (files.length !== 1) throw Error('SaveVideo did not return exactly one MKV video. No export was published.');
+        const files = historyFiles(result.entry, '3').filter(file => /\.mp4$/i.test(file.filename));
+        if (files.length !== 1) throw Error('SaveVideo did not return exactly one MP4 video. No export was published.');
         exportState.progress = 0.98; exportState.message = 'Receiving the saved video from ComfyUI…';
         const ref = { type: files[0].type, subfolder: files[0].subfolder, filename: files[0].filename };
-        const target = await deliver(ref, `${String(options.sourceName || 'video').replace(/\.[^.]+$/, '')}-stems.mkv`);
+        const target = await deliver(ref, `${String(options.sourceName || 'video').replace(/\.[^.]+$/, '')}-stems.mp4`);
         Object.assign(exportState, { phase: 'complete', progress: 1, message: 'Video exported through native ComfyUI SaveVideo.' });
         return target;
       } catch (error) { Object.assign(exportState, { phase: exportCancelled ? 'cancelled' : 'failed', progress: 0, message: error.message }); throw error; }

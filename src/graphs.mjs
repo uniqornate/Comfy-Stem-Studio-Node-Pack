@@ -71,7 +71,7 @@ export function editWorkflow(edits, prefix) {
 }
 
 export function validateVideoExport(stems, options) {
-  if (options.format !== 'mkv' || !['mix', 'tracks'].includes(options.mode)) throw new Error('Native lossless export requires MKV and a valid audio mode.');
+  if (options.format !== 'mp4' || !['mix', 'tracks'].includes(options.mode)) throw new Error('Native lossless export requires MP4 and a valid audio mode.');
   if (!Array.isArray(stems) || !stems.length || stems.length > 527 || new Set(stems.map(item => item.id)).size !== stems.length) throw new Error('Choose available stem channels.');
   for (const stem of stems) if (!Number.isFinite(stem.level) || stem.level < 0 || stem.level > 1 || typeof stem.mute !== 'boolean' || typeof stem.solo !== 'boolean') throw new Error('Invalid channel mix.');
 }
@@ -85,6 +85,6 @@ export function videoWorkflow(stems, options) {
     previous = id;
   });
   graph['2'] = { class_type: 'StemStudioVideo', inputs: { video: ['1', 0], tracks: [previous, 0], mode: options.mode } };
-  graph['3'] = { class_type: 'SaveVideo', inputs: { video: ['2', 0], filename_prefix: `StemStudio/Exports/${globalThis.crypto.randomUUID()}`, format: 'mkv', 'format.codec': 'auto' } };
+  graph['3'] = { class_type: 'SaveVideo', inputs: { video: ['2', 0], filename_prefix: `StemStudio/Exports/${globalThis.crypto.randomUUID()}`, format: 'mp4', 'format.codec': 'auto' } };
   return graph;
 }
