@@ -488,3 +488,6 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .pack-status{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:10.5px;color:var(--muted)}
 .pack-status>span{flex:1;min-width:0;overflow-wrap:anywhere}
 .settings-modal footer{align-items:center}
+
+.all-muted{padding:2px 9px;border:1px solid #f2ff5966;border-radius:999px;background:#f2ff5914;color:var(--yellow);font:9px Consolas,monospace;letter-spacing:.4px}
+.all-muted:hover{background:#f2ff5926}

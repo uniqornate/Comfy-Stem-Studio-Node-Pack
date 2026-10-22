@@ -308,15 +308,19 @@ function App() {
     const timer = setTimeout(() => setFresh(new Set()), 6000);
     return () => clearTimeout(timer);
   }, [job.runId]);
-  useEffect(() => {
-    if (job.phase !== 'complete' || !job.runId) return;
-    if (job.rootRunId) {
-      setRuns(values => values.map(value => value.runId === job.rootRunId ? { ...value, stems: [...value.stems, ...job.stems.filter(stem => !value.stems.some(existing => existing.id === stem.id))] } : value));
+  // A finished job becomes part of the project. Results that finished while the interface was not looking (a new job started
+  // before the last answer was read, or the page was in a background tab) arrive once as `job.earlier` and are added the same way.
+  const adoptRun = (done: StemJob) => {
+    if (done.phase !== 'complete' || !done.runId) return;
+    if (done.rootRunId) {
+      setRuns(values => values.map(value => value.runId === done.rootRunId ? { ...value, stems: [...value.stems, ...done.stems.filter(stem => !value.stems.some(existing => existing.id === stem.id))] } : value));
     } else {
-      setRuns(values => values.some(value => value.runId === job.runId) ? values : [...values, job].slice(-12));
-      setSelectedRun(job.runId);
+      setRuns(values => values.some(value => value.runId === done.runId) ? values : [...values, done].slice(-12));
+      setSelectedRun(done.runId!);
     }
-  }, [job.runId]);
+  };
+  useEffect(() => { adoptRun(job); }, [job.runId]);
+  useEffect(() => { if (job.earlier?.length) { for (const item of job.earlier) adoptRun(item); setFresh(new Set(job.earlier.flatMap(item => item.stems.map(stem => stem.id)))); } }, [job.earlier]);
   const connected = connection?.comfy && connection.proxy;
   const proxyWorking = preparingProxy || ['checking', 'downloading', 'installing', 'starting'].includes(proxyState?.phase || '');
   const jobBusy = !['idle', 'complete', 'failed', 'cancelled'].includes(job.phase);

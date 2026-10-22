@@ -1,6 +1,6 @@
 {
   "name": "stem-studio-node-pack",
-  "version": "0.13.5",
+  "version": "0.13.6",
   "private": true,
   "description": "Stem Studio inside ComfyUI: separate, edit and extract sound with the Stem Studio UI served by a ComfyUI custom node pack",
   "author": "Stem Studio contributors",

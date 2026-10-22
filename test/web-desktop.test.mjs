@@ -366,3 +366,18 @@ test('reload reopens the last project from the server note, and an unreadable pr
   const empty = await make(server).desktop.getProject();
   assert.notEqual(empty.info.id, a.info.id); assert.match(empty.warnings.join(' '), /could not be opened/);
 });
+
+test('a finished job that the interface never saw is handed over once with the next answer', async () => {
+  const server = fakeComfy(); const { desktop } = make(server);
+  const { opened } = await withSource(desktop);
+  const profile = await desktop.getProfile();
+  await desktop.separateStems(profile, opened.url, { mode: 'stems', model: 'mrx' });
+  await new Promise(resolve => setTimeout(resolve, 60)); // the first job finishes while nothing polls
+  await desktop.separateStems(profile, opened.url, { mode: 'stems', model: 'mrx' });
+  const status = await desktop.stemStatus();
+  assert.equal(status.earlier?.length, 1); assert.equal(status.earlier[0].phase, 'complete'); assert.equal(status.earlier[0].stems.length, 3);
+  const done = await waitFor(desktop, ['complete', 'failed']);
+  assert.equal(done.phase, 'complete'); assert.equal(done.earlier, undefined, 'handed over only once');
+  await desktop.separateStems(profile, opened.url, { mode: 'stems', model: 'mrx' });
+  assert.equal((await desktop.stemStatus()).earlier, undefined, 'a result that was read is not handed over again');
+});

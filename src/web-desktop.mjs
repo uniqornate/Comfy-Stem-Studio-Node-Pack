@@ -163,6 +163,7 @@ export function createWebDesktop(env = {}) {
   const exportState = { phase: 'idle', progress: 0, message: '' };
   let exportActive = false, exportJob = null, exportCancelled = false;
   let audioActive = false;
+  let delivered = '', missed = [];
   let mixActive = false, mixCancelled = false, mixJob = null;
   let batch = { phase: 'idle', items: [], current: -1, folder: '' }, batchActive = false, batchCancelled = false, batchFolder = null;
 
@@ -382,7 +383,14 @@ export function createWebDesktop(env = {}) {
       return { name: file.name, size: file.size, url: viewUrl(base, ref) };
     },
 
-    stemStatus: async () => structuredClone(state),
+    // The answer to a poll can be overwritten by the next job before it is read. Finished jobs that were never delivered are
+    // handed over once with the next answer, so a result in ComfyUI's output folder always reaches the project.
+    stemStatus: async () => {
+      const snapshot = structuredClone(state);
+      if (state.phase === 'complete' && state.runId) delivered = state.runId;
+      const earlier = missed; missed = [];
+      return earlier.length ? { ...snapshot, earlier } : snapshot;
+    },
     async separateStems(_profile, sourceUrl, options = {}) {
       await ensure();
       if (active) throw Error('A separation job is already active.');
@@ -397,6 +405,7 @@ export function createWebDesktop(env = {}) {
       const request_ = { ...options, outputPrefix: prefix };
       delete request_.referenceUrl; delete request_.videoUrl;
       const graph = stemWorkflow(request_);
+      if (!batchActive && state.phase === 'complete' && state.runId && state.runId !== delivered && !missed.some(item => item.runId === state.runId)) missed = [...missed, structuredClone(state)].slice(-12);
       active = true; cancelled = false; activeJob = null;
       state = { phase: 'checking', message: 'Checking audio workflow…', stems: [], canCancel: false };
       const startedAt = Date.now();

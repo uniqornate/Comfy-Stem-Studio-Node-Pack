@@ -4,7 +4,7 @@ import { audioNodes } from './shared/node-capabilities.mjs';
 import { brushCapability } from './shared/brush.mjs';
 import { musicCapability } from './shared/music.mjs';
 
-export async function engineStatus(profile, fetchImpl = fetch) {
+async function probeEngine(profile, fetchImpl = fetch) {
   try {
     const nodes = await audioNodes(normalizeEndpoint(profile.comfyUrl), fetchImpl);
     const missing = ['LoadAudio', 'StemStudioSeparate', 'SaveAudio'].filter(name => !nodes[name]);
@@ -13,6 +13,17 @@ export async function engineStatus(profile, fetchImpl = fetch) {
     return { ...brushCapability(nodes), ...musicCapability(nodes), samModels: !!nodes.StemStudioSAM?.input?.optional?.model_variant, editAudio: !!nodes.StemStudioEditAudio, projectOutputs: !!nodes.StemStudioExtractAll?.input?.optional?.filename_prefix, detailRange: !!nodes.StemStudioAudioRange && !!nodes.StemStudioRestoreRange, sam: !!nodes.StemStudioSAM, guidesep: !!nodes.StemStudioGuideSep, samPrompts: !!nodes.StemStudioSAM?.input?.optional?.guidance_json, samVisual: !!nodes.StemStudioSAM?.input?.optional?.video && !!nodes.LoadVideo, ready: missing.length === 0, models, autoThreshold: !!nodes.StemStudioExtract?.input?.optional?.auto_threshold && !!nodes.StemStudioExtractAll?.input?.optional?.auto_threshold, targets: targets.filter(name => name !== 'USS models not installed' && (name !== 'All' || nodes.StemStudioExtractAll)), message: missing.length ? `Missing audio nodes: ${missing.join(', ')}. Install the integration, restart ComfyUI, then check again.` : 'Audio nodes available. Choose an installed separation model or USS target extraction.' };
   } catch (error) { return { ready: false, message: `Audio engine could not be checked: ${error.message}` }; }
 }
+const lastReady = new Map();
+// A slow or briefly unreachable ComfyUI (a running job can hold it up) must not stop work that was possible a moment ago:
+// when the probe times out, the last good answer is used and marked stale.
+export async function engineStatus(profile, fetchImpl = fetch) {
+  const result = await probeEngine(profile, fetchImpl);
+  if (result.ready) { lastReady.set(profile.comfyUrl, result); return result; }
+  const earlier = lastReady.get(profile.comfyUrl);
+  if (earlier && /timed out|timeout|aborted|fetch failed|failed to fetch|network/i.test(result.message || '')) return { ...earlier, stale: true };
+  return result;
+}
+
 // Throws the first problem found. `have` says whether the host resolved the optional media inputs.
 export function checkRequest(status, options, have = {}) {
   if (options.mode === 'uss' && (!status.targets?.includes(options.target) || !Number.isFinite(options.threshold ?? 0.1) || (options.threshold ?? 0.1) < 0 || (options.threshold ?? 0.1) > 1)) throw new Error('Choose an installed USS target and valid threshold. Run setup with USS selected if it is missing.');
