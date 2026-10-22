@@ -302,7 +302,7 @@ test('sound model downloads and MMAudio preparation are Python routes of the nod
 
 test('the preview window, mix export to WAV and the batch folder have browser answers', async () => {
   const server = fakeComfy(); const { desktop, saved } = make(server);
-  await assert.rejects(desktop.openPreview('x', { position: 0, playing: false, rate: 1 }), /desktop app/);
+  await assert.rejects(desktop.openPreview('x', { position: 0, playing: false, rate: 1 }), /not available/);
   assert.deepEqual(await desktop.previewStatus(), { open: false, external: false });
   const path = await desktop.exportMix(await desktop.getProfile(), { format: 'wav', name: 'My song', bytes: new Uint8Array([1, 2, 3]) });
   assert.equal(path, 'My song-mix.wav'); assert.equal(saved.at(-1).blob.size, 3);
@@ -380,4 +380,15 @@ test('a finished job that the interface never saw is handed over once with the n
   assert.equal(done.phase, 'complete'); assert.equal(done.earlier, undefined, 'handed over only once');
   await desktop.separateStems(profile, opened.url, { mode: 'stems', model: 'mrx' });
   assert.equal((await desktop.stemStatus()).earlier, undefined, 'a result that was read is not handed over again');
+});
+
+test('the preview moves to a second window through the environment and stays in step', async () => {
+  const calls = []; let closed = () => {};
+  const preview = { open: async (url, state) => { calls.push(['open', url, state.position]); return { external: true }; }, sync: state => calls.push(['sync', state.playing]), close: () => calls.push(['close']), status: async () => true, onClosed: callback => { closed = callback; return () => {}; } };
+  const { desktop } = make(fakeComfy(), { preview });
+  assert.deepEqual(await desktop.openPreview('/view?x=1', { position: 3, playing: true, rate: 1 }), { external: true });
+  await desktop.syncPreview({ position: 4, playing: false, rate: 1 }); await desktop.closePreview();
+  assert.deepEqual(calls, [['open', '/view?x=1', 3], ['sync', false], ['close']]);
+  assert.deepEqual(await desktop.previewStatus(), { open: true, external: false });
+  let heard = 0; desktop.onPreviewClosed(() => heard++); closed(); assert.equal(heard, 1);
 });

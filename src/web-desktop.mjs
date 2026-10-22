@@ -530,12 +530,12 @@ export function createWebDesktop(env = {}) {
     prepareMMAudio: () => post('/stemstudio/mmaudio/prepare', {}, 'Stem Studio'),
     cancelMMAudio: async () => { await post('/stemstudio/mmaudio/cancel', {}, 'Stem Studio'); },
 
-    // A second window cannot be opened from a page inside ComfyUI.
-    openPreview: async () => { throw Error('Sending the preview to another display is only available in the desktop app.'); },
-    syncPreview: async () => {},
-    closePreview: async () => {},
-    previewStatus: async () => ({ open: false, external: false }),
-    onPreviewClosed: () => () => {},
+    // The preview can move to a second browser window (ideally on another display) that follows this page's transport.
+    openPreview: async (url, state) => { if (!env.preview) throw Error('Sending the preview to another window is not available in this browser.'); return env.preview.open(url, state); },
+    syncPreview: async state => { env.preview?.sync(state); },
+    closePreview: async () => { env.preview?.close(); },
+    previewStatus: async () => ({ open: env.preview ? await env.preview.status() : false, external: false }),
+    onPreviewClosed: callback => env.preview?.onClosed(callback) || (() => {}),
 
     // ---- mix export ----
     async exportMix(_profile, options) {
@@ -634,6 +634,45 @@ export function browserEnvironment(win = globalThis) {
   return {
     origin: location.origin, base, storage,
     fetch: (...args) => win.fetch(...args),
+    // A popup that only shows the picture. It is opened inside the click (a later open would be blocked), then moved to another
+    // display when the browser allows it (Window Management permission).
+    preview: (() => {
+      let popup = null, last = null;
+      const listeners = new Set();
+      const channel = typeof win.BroadcastChannel === 'function' ? new win.BroadcastChannel('stemstudio-preview') : null;
+      channel?.addEventListener('message', event => {
+        const message = event.data || {};
+        if (message.type === 'ready' && last) channel.postMessage({ type: 'state', ...last });
+        else if (message.type === 'closed') { popup = null; listeners.forEach(callback => callback()); }
+      });
+      return {
+        async open(url, state) {
+          last = state;
+          popup = win.open(`${base}/stemstudio/app/preview.html?src=${encodeURIComponent(url)}`, 'stemstudio-preview', 'popup=yes,width=960,height=540');
+          if (!popup) throw Error('Your browser blocked the preview window. Allow pop-ups for this page and try again.');
+          let external = false;
+          try {
+            if (win.getScreenDetails) {
+              const details = await win.getScreenDetails(), other = details.screens.find(screen => screen !== details.currentScreen);
+              if (other) { popup.moveTo(other.availLeft, other.availTop); popup.resizeTo(other.availWidth, other.availHeight); external = true; }
+            }
+          } catch { /* the window stays where the browser put it; drag it to the other display */ }
+          return { external };
+        },
+        sync(state) { last = state; channel?.postMessage({ type: 'state', ...state }); },
+        close() { channel?.postMessage({ type: 'close' }); try { popup?.close(); } catch { /* already closed */ } popup = null; },
+        status() {
+          if (!channel) return Promise.resolve(!!popup && !popup.closed);
+          return new Promise(resolve => {
+            const answer = event => { if (event.data?.type === 'pong') { done(true); } };
+            const done = value => { channel.removeEventListener('message', answer); clearTimeout(timer); resolve(value); };
+            const timer = setTimeout(() => done(false), 300);
+            channel.addEventListener('message', answer); channel.postMessage({ type: 'ping' });
+          });
+        },
+        onClosed(callback) { listeners.add(callback); return () => listeners.delete(callback); },
+      };
+    })(),
     pickFiles: accept => new Promise(resolve => {
       const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.accept = accept || ''; input.style.display = 'none';
       input.addEventListener('change', () => { resolve([...(input.files || [])]); input.remove(); }, { once: true });

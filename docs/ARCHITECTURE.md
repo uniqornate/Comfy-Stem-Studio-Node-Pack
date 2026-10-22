@@ -19,4 +19,4 @@ Stem Studio runs inside ComfyUI. One folder, `comfy_nodes/StemStudio`, holds eve
 
 ## Differences from the desktop app
 
-No second-display preview, browser file dialogs instead of native ones (folder choice needs a Chromium browser), no API proxy, and no ComfyUI installer. Everything else follows the desktop app's UI.
+The preview can move to a second browser window (a popup that follows the page's transport over a BroadcastChannel, moved to another display when the browser grants the Window Management permission, `public/preview.html` and `public/preview.js`). Browser file dialogs instead of native ones (folder choice needs a Chromium browser), no API proxy, and no ComfyUI installer. Everything else follows the desktop app's UI.

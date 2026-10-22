@@ -16,6 +16,7 @@ export type WebEnvironment = {
   saveFile?: (blob: Blob, filename: string) => Promise<string>;
   saveFolder?: (files: { filename: string; load: () => Promise<Blob> }[]) => Promise<string>;
   zoom?: (factor: number) => void;
+  preview?: { open(url: string, state: { position: number; playing: boolean; rate: number }): Promise<{ external: boolean }>; sync(state: { position: number; playing: boolean; rate: number }): void; close(): void; status(): Promise<boolean>; onClosed(callback: () => void): () => void };
   onPageHide?: (callback: () => void) => () => void;
 };
 export function createWebDesktop(env?: WebEnvironment): Desktop;
