@@ -565,3 +565,9 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 
 /* The connection button is as tall as the telemetry cards */
 .topbar .connection-pill{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 11px;border-radius:9px}
+
+/* Preview behind the timeline (arrange view): the video panel is fitted to the timeline's rectangle and sits under it */
+.studio-workspace .floating-preview.is-backdrop{z-index:0;cursor:default;pointer-events:none;border-radius:0}
+.studio-workspace .floating-preview.is-backdrop .preview-stage video{object-fit:cover}
+.multitrack.is-backdrop .track-controls,.multitrack.is-backdrop .track-ruler-label{background:#302936cc}
+.waveform-knob.is-video{box-shadow:0 0 0 2px #7ee08a99}

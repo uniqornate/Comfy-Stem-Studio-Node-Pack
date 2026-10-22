@@ -6,7 +6,7 @@ import { GRAIN_DEFAULTS, GRAIN_TILE, noiseTile, type GrainParams } from './grain
 type Hole = { x: number; y: number; w: number; h: number };
 function videoHole(): Hole | null {
   const video = document.querySelector<HTMLVideoElement>('.preview-stage video');
-  if (!video || !video.videoWidth || video.closest('.is-external')) return null;
+  if (!video || !video.videoWidth || video.closest('.is-external') || video.closest('.is-backdrop')) return null;
   const zoom = pageZoom(), box = video.getBoundingClientRect();
   if (box.width < 2 || box.height < 2) return null;
   let x = box.left, y = box.top, w = box.width, h = box.height;
