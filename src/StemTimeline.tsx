@@ -223,7 +223,9 @@ export function StemTimeline({ renameChannel, deleteChannels, brushAvailable, on
     return () => { window.removeEventListener('pointerdown', dismiss); window.removeEventListener('keydown', key); };
   }, [menu]);
   useEffect(() => {
-    transport.pause(); transport.setAudio(null, [], {}); setTracks([]); setError(''); setMenu(null);
+    transport.pause(); transport.setAudio(null, [], {}); setError(''); setMenu(null);
+    // Rows already on screen stay while new channels are read, so adding a channel never empties the timeline.
+    setTracks(previous => previous.filter(track => stems.some(stem => stem.id === track.stem.id)));
     for (const id of cache.current.keys()) if (!stems.some(stem => stem.id === id)) cache.current.delete(id);
     const previousMix = mixRef.current;
     if (!stems.length) { setLoading(false); setMix({}); return; }
