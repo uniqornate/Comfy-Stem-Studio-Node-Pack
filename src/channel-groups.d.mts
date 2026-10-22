@@ -1,0 +1,11 @@
+import type { Stem, ChannelGroup } from './types';
+export const GROUP_COLORS: string[];
+export type Row = { stem: Stem; group?: undefined; depth: number; color: number; groupId?: string; hex?: string; count?: undefined } | { group: ChannelGroup; stem?: undefined; depth: number; color: number; hex?: string; groupId?: undefined; count: number };
+export function validGroups(groups: unknown): boolean;
+export function createGroup(groups: ChannelGroup[], ids: string[], name: string, color: string | null | undefined, id: string): ChannelGroup[];
+export function leaveGroups(groups: ChannelGroup[], ids: string[]): ChannelGroup[];
+export function ungroup(groups: ChannelGroup[], id: string): ChannelGroup[];
+export function recolorGroup(groups: ChannelGroup[], id: string, color: string | null): ChannelGroup[];
+export function renameGroup(groups: ChannelGroup[], id: string, name: string): ChannelGroup[];
+export function pruneGroups(groups: ChannelGroup[], stems: Stem[]): ChannelGroup[];
+export function arrangeRows(stems: Stem[], groups?: ChannelGroup[], collapsed?: Set<string>): Row[];

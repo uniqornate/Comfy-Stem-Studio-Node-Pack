@@ -504,3 +504,26 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .brush-ghost .ghost-bar::after,.brush-ghost .ghost-dot::after,.brush-ghost .ghost-wave::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffff20,transparent);transform:translateX(-100%);animation:ghost-sweep 1.3s ease-in-out infinite}
 @keyframes ghost-sweep{to{transform:translateX(100%)}}
 @media(prefers-reduced-motion:reduce){.brush-ghost .ghost-bar::after,.brush-ghost .ghost-dot::after,.brush-ghost .ghost-wave::after{animation:none}}
+
+/* One playhead for the whole timeline: a single compositor layer moved with a transform */
+.timeline-grid{position:relative}
+.playhead-rail{position:absolute;top:25px;bottom:0;left:224px;right:0;overflow:hidden;pointer-events:none;z-index:1}
+.playhead-rail>i{position:absolute;inset:0;display:block;will-change:transform}
+.playhead-rail>i::before{content:'';position:absolute;left:0;top:0;bottom:0;width:1px;background:#f0efed;box-shadow:0 0 4px #000}
+@media(max-width:800px){.playhead-rail{left:200px}}
+
+/* Channel groups: a thin header row, colour swatches and the naming dialog */
+.group-head{display:flex!important;align-items:center;gap:6px;background:color-mix(in srgb,var(--track) 12%,#302936)!important}
+.group-head strong{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--track)}
+.group-head small{font:9px Consolas,monospace;color:var(--muted)}
+.group-head .group-icon{color:var(--track);flex-shrink:0}
+.group-head .group-fold{display:inline-flex!important;align-items:center;justify-content:center}
+.group-lane{background:linear-gradient(90deg,color-mix(in srgb,var(--track) 14%,transparent),transparent 60%)!important}
+.swatches{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:6px 8px}
+.swatches>span{font-size:11px;color:var(--muted);margin-right:4px}
+.swatch{width:20px;height:20px;padding:0;border:1px solid #ffffff33;border-radius:50%;color:#211927;font-size:9px;font-weight:700}
+.swatch-auto{background:repeating-linear-gradient(45deg,#ffffff22 0 3px,transparent 3px 6px);color:var(--text)}
+.swatch.is-active{outline:2px solid var(--yellow);outline-offset:2px}
+.group-name-field{display:grid;gap:6px;font-size:11px;color:var(--muted)}
+.group-name-field input{border:1px solid var(--border);border-radius:9px;padding:9px 10px;background:var(--ink);color:var(--text);font:inherit;font-size:13px}
+.group-modal .swatches{padding:0}
