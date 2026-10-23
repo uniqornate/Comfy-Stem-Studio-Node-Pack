@@ -591,6 +591,6 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 /* Waveform height is the scale of each clip's picture as a whole. While the knob turns, the pictures are hidden and guide lines show the target */
 .studio-workspace .waveform-clip svg{transform:scaleY(var(--wave-height,.7));overflow:visible}
 .multitrack.is-waving .waveform-clip svg{visibility:hidden}
-.multitrack.is-waving .waveform-clip::before,.multitrack.is-waving .waveform-clip::after{content:'';position:absolute;left:0;right:0;height:0;border-top:1px solid color-mix(in srgb,var(--track) 85%,transparent);pointer-events:none;z-index:1}
+.multitrack.is-waving .waveform-clip::before,.multitrack.is-waving .waveform-clip::after{content:'';position:absolute;left:0;right:0;height:0;border-top:1px dashed color-mix(in srgb,var(--track) 45%,transparent);pointer-events:none;z-index:1}
 .multitrack.is-waving .waveform-clip::before{top:calc(50% - 45% * var(--guide,.7))}
 .multitrack.is-waving .waveform-clip::after{top:calc(50% + 45% * var(--guide,.7))}
