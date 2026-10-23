@@ -584,5 +584,6 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 /* Pan mode of the level knob (Ctrl held): white ring, a centre mark and L / R letters */
 .level-knob.is-pan{border-color:#fff;box-shadow:0 0 0 1px #ffffffcc}
 .level-knob .pan-center{position:absolute;left:50%;top:-4px;width:1px;height:5px;margin-left:-.5px;background:#fff;pointer-events:none}
-.level-knob .pan-letter{position:absolute;top:50%;transform:translateY(-50%);font:700 7px 'Segoe UI',sans-serif;font-style:normal;color:#fff;pointer-events:none;text-shadow:0 0 3px #000}
-.level-knob .pan-l{left:-8px}.level-knob .pan-r{right:-8px}
+.level-knob .pan-letter{position:absolute;top:-9px;font:700 7px 'Segoe UI',sans-serif;font-style:normal;color:#fff;pointer-events:none;text-shadow:0 0 3px #000}
+.level-knob .pan-l{left:1px}.level-knob .pan-r{right:1px}
+.knob-readout-float{position:fixed;z-index:9300;transform:translateY(-50%);padding:2px 6px;font:9px Consolas,monospace;color:var(--text);background:#352e3b;border:1px solid #ffffff33;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 4px 12px #0006}

@@ -79,9 +79,11 @@ export class MediaTransport {
     if (previous && !!previous.left === panned) { if (panned) set(previous); return; }
     if (previous) { try { gain.disconnect(previous.entry); } catch {} previous.nodes.forEach(node => { try { node.disconnect(); } catch {} }); }
     if (!panned) { gain.connect(ctx.destination); this.routes.set(id, { entry: ctx.destination, nodes: [] }); return; }
+    // A splitter reads a mono signal as left only, so the channel is first doubled to two channels (mono becomes the same on both sides).
+    const double = ctx.createGain(); double.channelCount = 2; double.channelCountMode = 'explicit'; double.channelInterpretation = 'speakers';
     const splitter = ctx.createChannelSplitter(2), merger = ctx.createChannelMerger(2), left = ctx.createGain(), right = ctx.createGain();
-    splitter.connect(left, 0); splitter.connect(right, 1); left.connect(merger, 0, 0); right.connect(merger, 0, 1); merger.connect(ctx.destination); gain.connect(splitter);
-    const route = { entry: splitter, nodes: [splitter, left, right, merger], left, right }; this.routes.set(id, route); set(route);
+    double.connect(splitter); splitter.connect(left, 0); splitter.connect(right, 1); left.connect(merger, 0, 0); right.connect(merger, 0, 1); merger.connect(ctx.destination); gain.connect(double);
+    const route = { entry: double, nodes: [double, splitter, left, right, merger], left, right }; this.routes.set(id, route); set(route);
   }
   // Analysers cost audio-thread time for every channel, so they exist only while metering is switched on.
   attachMeter(id, gain) {

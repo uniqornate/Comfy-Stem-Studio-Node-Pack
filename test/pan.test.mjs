@@ -22,7 +22,7 @@ test('panning routes a channel through left and right gains with the balance law
   const gain = node('channel'); transport.wire('a', gain, 0);
   assert.deepEqual(gain.links, [ctx.destination]);
   transport.wire('a', gain, 0.5);
-  const [left, right] = made; assert.equal(left.gain.value, 0.5); assert.equal(right.gain.value, 1);
+  const [, left, right] = made; // made: [double, left, right] assert.equal(left.gain.value, 0.5); assert.equal(right.gain.value, 1);
   transport.wire('a', gain, -0.25); assert.equal(left.gain.value, 1); assert.equal(right.gain.value, 0.75);
 });
 test('the video export graph passes a non-zero pan to the channel node', () => {

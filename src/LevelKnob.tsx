@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { pageZoom } from './page-zoom.mjs';
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 const clampPan = (value: number) => Math.max(-1, Math.min(1, Math.abs(value) < 0.02 ? 0 : value));
@@ -21,6 +23,7 @@ type Pan = { value: number; onPreview: (value: number) => void; onChange: (value
 // channel's left/right balance: white ring, a centre mark and L / R letters.
 export function LevelKnob({ value, label, onBegin, onPreview, onChange, pan }: { value: number; label: string; onBegin: () => void; onPreview: (value: number) => void; onChange: (value: number) => void; pan?: Pan }) {
   const dial = useRef<HTMLSpanElement>(null), root = useRef<HTMLDivElement>(null), drag = useRef<{ y: number; value: number; pan: boolean } | null>(null), current = useRef(value), currentPan = useRef(pan?.value ?? 0), frame = useRef<number | null>(null), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false), [shown, setShown] = useState(value), [shownPan, setShownPan] = useState(pan?.value ?? 0);
   const ctrl = useSyncExternalStore(subscribeCtrl, () => ctrlDown, () => false), panMode = ctrl && !!pan;
   const callbacks = useRef({ onBegin, onPreview, onChange, pan }); callbacks.current = { onBegin, onPreview, onChange, pan };
@@ -40,13 +43,14 @@ export function LevelKnob({ value, label, onBegin, onPreview, onChange, pan }: {
   const wantsPan = (event: { ctrlKey: boolean }) => event.ctrlKey && !!callbacks.current.pan;
   return <div ref={root} className={`level-knob ${dragging ? 'is-dragging' : ''} ${panMode ? 'is-pan' : ''}`} role="slider" tabIndex={0} aria-label={panMode ? `${label.replace(/ level$/, '')} pan` : label} aria-valuemin={panMode ? -100 : 0} aria-valuemax={100} aria-valuenow={panMode ? Math.round(shownPan * 100) : Math.round(shown * 100)} aria-valuetext={panMode ? panText(shownPan) : dbText(shown)}
     data-tip={panMode ? `Pan ${panText(shownPan)}\nDrag up (right) or down (left). Scroll or arrow keys nudge. Double-click to center. Release Ctrl for the level.` : `Level ${dbText(shown)}\nDrag up or down, Shift for fine steps. Scroll or arrow keys nudge. Double-click for unity.${pan ? ' Hold Ctrl to pan left or right.' : ''}`}
-    onPointerDown={event => { if (event.button !== 0) return; event.stopPropagation(); const asPan = wantsPan(event); callbacks.current.onBegin(); drag.current = { y: event.clientY, value: asPan ? currentPan.current : current.current, pan: asPan }; setDragging(true); event.currentTarget.setPointerCapture(event.pointerId); }}
+    onPointerDown={event => { if (event.button !== 0) return; event.stopPropagation(); const asPan = wantsPan(event); callbacks.current.onBegin(); drag.current = { y: event.clientY, value: asPan ? currentPan.current : current.current, pan: asPan }; setDragging(true); { const box = event.currentTarget.getBoundingClientRect(), zoom = pageZoom(); setAnchor({ x: (box.right + 8) / zoom, y: (box.top + box.height / 2) / zoom }); } event.currentTarget.setPointerCapture(event.pointerId); }}
     onPointerMove={event => { const state = drag.current; if (!state) return; const delta = (state.y - event.clientY) / (event.shiftKey ? 600 : state.pan ? 60 : 120); turn(state.value + delta, state.pan); }} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
     onWheel={event => { const asPan = wantsPan(event); if (!timer.current) callbacks.current.onBegin(); turn((asPan ? currentPan.current : current.current) + (event.deltaY < 0 ? (asPan ? .06 : .03) : (asPan ? -.06 : -.03)), asPan); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => commit(asPan), 140); }}
     onDoubleClick={event => { event.stopPropagation(); const asPan = wantsPan(event); callbacks.current.onBegin(); turn(asPan ? 0 : 1, asPan); commit(asPan); }}
     onKeyDown={event => { const asPan = wantsPan(event), now = asPan ? currentPan.current : current.current, step = asPan ? .05 : .02; const next = event.key === 'Home' ? (asPan ? -1 : 0) : event.key === 'End' ? 1 : ['ArrowUp', 'ArrowRight'].includes(event.key) ? now + step : ['ArrowDown', 'ArrowLeft'].includes(event.key) ? now - step : null; if (next !== null) { event.preventDefault(); if (!event.repeat) callbacks.current.onBegin(); turn(next, asPan); commit(asPan); } }}>
     <span ref={dial} className="level-dial" style={{ transform: `rotate(${-135 + value * 270}deg)` }}><i/></span>
     {panMode && <><b className="pan-center"/><em className="pan-letter pan-l">L</em><em className="pan-letter pan-r">R</em></>}
-    {dragging && <output className="knob-readout">{drag.current?.pan || panMode ? panText(shownPan) : dbText(shown)}</output>}
+    {/* The value card is drawn on the page itself, not inside the row: the row clips what sticks out of it. */}
+    {dragging && anchor && createPortal(<output className="knob-readout-float" style={{ left: anchor.x, top: anchor.y }}>{drag.current?.pan || panMode ? panText(shownPan) : dbText(shown)}</output>, document.body)}
   </div>;
 }

@@ -18,9 +18,10 @@ export async function renderMix(items: Item[], mix: Record<string, { mute: boole
     const buffer = items.find(item => item.id === entry.id)!.buffer, level = ctx.createGain(); level.gain.value = entry.level;
     if (entry.pan) {
       // Same balance law as playback: the side away from the pan direction is turned down.
+      const double = ctx.createGain(); double.channelCount = 2; double.channelCountMode = 'explicit'; double.channelInterpretation = 'speakers'; // mono doubled, as in playback
       const splitter = ctx.createChannelSplitter(2), merger = ctx.createChannelMerger(2), left = ctx.createGain(), right = ctx.createGain();
       left.gain.value = entry.pan > 0 ? 1 - entry.pan : 1; right.gain.value = entry.pan < 0 ? 1 + entry.pan : 1;
-      level.connect(splitter); splitter.connect(left, 0); splitter.connect(right, 1); left.connect(merger, 0, 0); right.connect(merger, 0, 1); merger.connect(ctx.destination);
+      level.connect(double); double.connect(splitter); splitter.connect(left, 0); splitter.connect(right, 1); left.connect(merger, 0, 0); right.connect(merger, 0, 1); merger.connect(ctx.destination);
     } else level.connect(ctx.destination);
     for (const segment of entry.segments) {
       const source = ctx.createBufferSource(), envelope = ctx.createGain();
