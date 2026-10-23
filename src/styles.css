@@ -580,3 +580,9 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 .brush-ghost .ghost-paint::after{content:'';position:absolute;top:0;bottom:0;left:-44px;right:-44px;background:repeating-linear-gradient(115deg,transparent 0 11px,color-mix(in srgb,var(--track) 30%,transparent) 11px 22px);animation:ghost-paint 800ms linear infinite;will-change:transform}
 @keyframes ghost-paint{to{transform:translateX(22px)}}
 @media(prefers-reduced-motion:reduce){.brush-ghost .ghost-paint::after{animation:none}}
+
+/* Pan mode of the level knob (Ctrl held): white ring, a centre mark and L / R letters */
+.level-knob.is-pan{border-color:#fff;box-shadow:0 0 0 1px #ffffffcc}
+.level-knob .pan-center{position:absolute;left:50%;top:-4px;width:1px;height:5px;margin-left:-.5px;background:#fff;pointer-events:none}
+.level-knob .pan-letter{position:absolute;top:50%;transform:translateY(-50%);font:700 7px 'Segoe UI',sans-serif;font-style:normal;color:#fff;pointer-events:none;text-shadow:0 0 3px #000}
+.level-knob .pan-l{left:-8px}.level-knob .pan-r{right:-8px}

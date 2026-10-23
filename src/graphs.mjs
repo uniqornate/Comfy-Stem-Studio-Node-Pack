@@ -81,7 +81,7 @@ export function videoWorkflow(stems, options) {
   let previous;
   stems.forEach((stem, index) => {
     const id = String(10 + index);
-    graph[id] = { class_type: 'StemStudioVideoTrack', inputs: { file: '', label: String(stem.label).replace(/[\r\n]/g, ' ').slice(0, 120), mute: stem.mute, solo: stem.solo, level: stem.level, ...(previous ? { previous: [previous, 0] } : {}) } };
+    graph[id] = { class_type: 'StemStudioVideoTrack', inputs: { file: '', label: String(stem.label).replace(/[\r\n]/g, ' ').slice(0, 120), mute: stem.mute, solo: stem.solo, level: stem.level, ...(Number.isFinite(stem.pan) && stem.pan >= -1 && stem.pan <= 1 && stem.pan !== 0 ? { pan: stem.pan } : {}), ...(previous ? { previous: [previous, 0] } : {}) } };
     previous = id;
   });
   graph['2'] = { class_type: 'StemStudioVideo', inputs: { video: ['1', 0], tracks: [previous, 0], mode: options.mode } };

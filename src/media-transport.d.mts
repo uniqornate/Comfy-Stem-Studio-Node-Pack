@@ -5,8 +5,8 @@ export class MediaTransport {
   restore(state?: { position?: number; duration?: number; selection?: { start: number; end: number } | null; loopLocked?: boolean }): void;
   subscribe(callback: (state: TransportState) => void): () => void;
   attachVideo(video: HTMLVideoElement | null): void;
-  setAudio(context: AudioContext | null, tracks: { stem: { id: string }; buffer: AudioBuffer | null }[], mix: Record<string, { mute: boolean; solo: boolean; level: number }>): void;
-  setMix(mix: Record<string, { mute: boolean; solo: boolean; level: number }>): void;
+  setAudio(context: AudioContext | null, tracks: { stem: { id: string }; buffer: AudioBuffer | null }[], mix: Record<string, { mute: boolean; solo: boolean; level: number; pan?: number }>): void;
+  setMix(mix: Record<string, { mute: boolean; solo: boolean; level: number; pan?: number }>): void;
   setEdits(edits: Record<string, import('./clip-edits.mjs').ChannelEdit>): void;
   level(id: string): number;
   setMetering(on: boolean): void;

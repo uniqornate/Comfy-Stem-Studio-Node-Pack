@@ -8,7 +8,7 @@ export class MediaTransport {
     this.requestFrame = options.requestFrame || (callback => requestAnimationFrame(callback));
     this.cancelFrame = options.cancelFrame || (id => cancelAnimationFrame(id));
     this.video = null; this.context = null; this.tracks = []; this.mix = {};
-    this.sources = []; this.gains = new Map(); this.meters = new Map(); this.metering = false; this.listeners = new Set(); this.events = [];
+    this.sources = []; this.gains = new Map(); this.routes = new Map(); this.meters = new Map(); this.metering = false; this.listeners = new Set(); this.events = [];
     this.frame = null; this.generation = 0; this.buffering = false; this.mode = 'original'; this.error = '';
     this.anchor = null; this.scrubTarget = null; this.playPending = false; this.selection = null; this.loopLocked = false; this.wantsPlayback = false;
   }
@@ -68,7 +68,20 @@ export class MediaTransport {
     for (const [id, gain] of this.gains) {
       const state = mix[id];
       gain.gain.setTargetAtTime(state && !state.mute && (!anySolo || state.solo) ? state.level : 0, this.context.currentTime, 0.012);
+      this.wire(id, gain, state?.pan || 0);
     }
+  }
+  // Left/right balance of a channel: the left side is turned down when panning right and the right side when panning left, so the
+  // centre is exactly what a channel sounded like before panning existed. A centred channel goes straight to the output.
+  wire(id, gain, pan) {
+    const ctx = this.context, previous = this.routes.get(id), panned = !!pan;
+    const set = route => { route.left.gain.setTargetAtTime(pan > 0 ? 1 - pan : 1, ctx.currentTime, 0.012); route.right.gain.setTargetAtTime(pan < 0 ? 1 + pan : 1, ctx.currentTime, 0.012); };
+    if (previous && !!previous.left === panned) { if (panned) set(previous); return; }
+    if (previous) { try { gain.disconnect(previous.entry); } catch {} previous.nodes.forEach(node => { try { node.disconnect(); } catch {} }); }
+    if (!panned) { gain.connect(ctx.destination); this.routes.set(id, { entry: ctx.destination, nodes: [] }); return; }
+    const splitter = ctx.createChannelSplitter(2), merger = ctx.createChannelMerger(2), left = ctx.createGain(), right = ctx.createGain();
+    splitter.connect(left, 0); splitter.connect(right, 1); left.connect(merger, 0, 0); right.connect(merger, 0, 1); merger.connect(ctx.destination); gain.connect(splitter);
+    const route = { entry: splitter, nodes: [splitter, left, right, merger], left, right }; this.routes.set(id, route); set(route);
   }
   // Analysers cost audio-thread time for every channel, so they exist only while metering is switched on.
   attachMeter(id, gain) {
@@ -96,7 +109,7 @@ export class MediaTransport {
   }
   stopAudio() {
     this.sources.forEach(source => { try { source.stop(); } catch {} source.disconnect(); });
-    this.sources = []; this.gains.forEach(gain => gain.disconnect()); this.gains.clear(); this.meters.clear(); this.anchor = null;
+    this.sources = []; this.routes.forEach(route => route.nodes.forEach(node => { try { node.disconnect(); } catch {} })); this.routes.clear(); this.gains.forEach(gain => gain.disconnect()); this.gains.clear(); this.meters.clear(); this.anchor = null;
   }
   alignAudio() {
     this.stopAudio();
@@ -109,7 +122,7 @@ export class MediaTransport {
       if (!buffer || offset >= buffer.duration) continue;
       const gain = ctx.createGain(); const state = this.mix[stem.id];
       gain.gain.value = state && !state.mute && (!anySolo || state.solo) ? state.level : 0;
-      gain.connect(ctx.destination); this.gains.set(stem.id, gain);
+      this.gains.set(stem.id, gain); this.wire(stem.id, gain, state?.pan || 0);
       this.attachMeter(stem.id, gain);
       if (!this.edits?.[stem.id]) {
         const source = ctx.createBufferSource(); source.buffer = buffer; source.playbackRate.value = rate; source.connect(gain);

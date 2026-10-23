@@ -22,15 +22,16 @@ class StemStudioVideoTrack:
         return {'required': {'file': ('STRING', {'default': ''}), 'label': ('STRING', {'default': 'Stem'}),
             'mute': ('BOOLEAN', {'default': False}), 'solo': ('BOOLEAN', {'default': False}),
             'level': ('FLOAT', {'default': 1.0, 'min': 0.0, 'max': 1.0})},
-            'optional': {'previous': ('STEM_STUDIO_TRACKS',)}}
+            'optional': {'previous': ('STEM_STUDIO_TRACKS',), 'pan': ('FLOAT', {'default': 0.0, 'min': -1.0, 'max': 1.0})}}
     RETURN_TYPES = ('STEM_STUDIO_TRACKS',)
     FUNCTION = 'track'
     CATEGORY = 'Stem Studio'
-    def track(self, file, label, mute, solo, level, previous=None):
+    def track(self, file, label, mute, solo, level, previous=None, pan=0.0):
         if not math.isfinite(level) or not 0 <= level <= 1: raise ValueError('Invalid channel gain.')
+        if not math.isfinite(pan) or not -1 <= pan <= 1: raise ValueError('Invalid channel pan.')
         tracks = list(previous or [])
         if len(tracks) >= 527: raise ValueError('Too many channels.')
-        tracks.append({'path': input_file(file), 'label': str(label)[:120], 'mute': bool(mute), 'solo': bool(solo), 'level': level})
+        tracks.append({'path': input_file(file), 'label': str(label)[:120], 'mute': bool(mute), 'solo': bool(solo), 'level': level, 'pan': pan})
         return (tracks,)
 
 
@@ -132,6 +133,8 @@ class StemVideo(VideoInput):
                     widest = max([stream.layout for _, _, stream in sources], key=lambda item: len(item.channels), default=None)
                     layout = widest.name if widest else 'mono'
                     channels = len(widest.channels) if widest else 1
+                    # A panned channel needs two output channels; the balance law matches the preview (the side away from the pan is turned down).
+                    if channels == 1 and any(track.get('pan', 0) for track, _, _ in sources): layout, channels = 'stereo', 2
                     target = output.add_stream('flac', rate=rate, layout=layout)
                     target.codec_context.format = 's32'
                     target.metadata['title'] = 'Stem Studio mix'
@@ -143,7 +146,7 @@ class StemVideo(VideoInput):
                             mm.throw_exception_if_processing_interrupted()
                             for converted in converter.resample(frame): yield converted.to_ndarray()
                         for converted in converter.resample(None): yield converted.to_ndarray()
-                    readers = [{'iterator': iter(decoded(container, stream)), 'data': None, 'offset': 0, 'level': track['level']} for track, container, stream in sources]
+                    readers = [{'iterator': iter(decoded(container, stream)), 'data': None, 'offset': 0, 'level': track['level'], 'pan': track.get('pan', 0) if channels == 2 else 0} for track, container, stream in sources]
                     def read(reader, count):
                         value = np.zeros((channels, count), dtype=np.float32); filled = 0
                         while filled < count:
@@ -159,7 +162,10 @@ class StemVideo(VideoInput):
                             mm.throw_exception_if_processing_interrupted()
                             count = min(4096, total - position)
                             value = np.zeros((channels, count), dtype=np.float32)
-                            for reader in readers: value += read(reader, count) * reader['level']
+                            for reader in readers:
+                                part = read(reader, count) * reader['level']
+                                if reader['pan']: part[0] *= 1 - max(reader['pan'], 0); part[1] *= 1 + min(reader['pan'], 0)
+                                value += part
                             if not np.isfinite(value).all(): raise ValueError('Invalid mixed audio samples.')
                             pcm = (np.rint(np.clip(value, -1, 1 - 1 / 8388608) * 8388608).astype(np.int32) << 8)
                             frame = av.AudioFrame.from_ndarray(np.ascontiguousarray(pcm.T).reshape(1, -1), format='s32', layout=layout)
