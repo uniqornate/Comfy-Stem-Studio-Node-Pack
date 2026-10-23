@@ -61,7 +61,7 @@ const ClipWave = memo(function ClipWave({ label, data, peak, path, duration, cli
     return parts.join(' ');
   }, [active.map(region => `${region.start}:${region.end}:${region.db}`).join('|'), path, data, peak, first, last, total, shift]);
   const view = `${clip.start / total * data.length} 0 ${(clip.end - clip.start) / total * data.length} 80`;
-  return <svg viewBox={view} data-view={view} preserveAspectRatio="none" aria-label={`${label} audio waveform`}><path style={{ transform: 'scaleY(var(--wave-height, .7))', transformOrigin: 'center', transformBox: 'view-box' }} d={d} fill="none" stroke="currentColor" strokeWidth="1"/></svg>;
+  return <svg viewBox={view} data-view={view} preserveAspectRatio="none" aria-label={`${label} audio waveform`}><path d={d} fill="none" stroke="currentColor" strokeWidth="1"/></svg>;
 });
 function TimelineScrub({ transport, duration }: { transport: MediaTransport; duration: number }) {
   const position = usePosition(transport);
@@ -424,7 +424,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     // alone. The clip box masks it, so material that is trimmed away is already there when the edge is dragged back out. A
     // dense waveform is expensive to rasterise, which is why the picture is never redrawn during the drag.
     const picture = direct ? clip?.querySelector('svg') as SVGElement | null : null, pxPerSecond = lane.getBoundingClientRect().width / duration;
-    if (picture && base && track) { picture.dataset.direct = '1'; picture.setAttribute('viewBox', `0 0 ${track.peaks.length} 80`); picture.style.width = `${track.duration * pxPerSecond}px`; picture.style.maxWidth = 'none'; picture.style.willChange = 'transform'; picture.style.transform = `translateX(${-base.start * pxPerSecond}px)`; }
+    if (picture && base && track) { picture.dataset.direct = '1'; picture.setAttribute('viewBox', `0 0 ${track.peaks.length} 80`); picture.style.width = `${track.duration * pxPerSecond}px`; picture.style.maxWidth = 'none'; picture.style.willChange = 'transform'; picture.style.transform = `translateX(${-base.start * pxPerSecond}px) scaleY(var(--wave-height, .7))`; }
     editDrag.current = { kind, stem, id, grab, y: event.clientY, db: gainAt(initial, selection ? (selection.start + selection.end) / 2 : transport.snapshot().position), initial, rect: lane.getBoundingClientRect(), ...(direct && clip && base && track ? { element: clip, wave: { pxPerSecond } } : {}) };
     event.currentTarget.setPointerCapture(event.pointerId); setGainDragging(kind === 'gain');
   }
@@ -441,7 +441,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
       if (clip) {
         drag.element.style.left = `${placedStart(clip) / duration * 100}%`; drag.element.style.width = `${(clip.end - clip.start) / duration * 100}%`;
         const picture = drag.element.querySelector('svg') as SVGElement | null;
-        if (picture) picture.style.transform = `translateX(${-clip.start * drag.wave.pxPerSecond}px)`;
+        if (picture) picture.style.transform = `translateX(${-clip.start * drag.wave.pxPerSecond}px) scaleY(var(--wave-height, .7))`;
       }
       return;
     }
@@ -531,6 +531,17 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
   }
   // The left half of a skeleton row uses the real row's classes, so its placeholders sit exactly where name, mute, solo and knob do.
   const ghostControls = <div className="track-controls"><div className="track-head"><div className="track-name"><span className="track-number ghost-bar"/><strong className="ghost-bar ghost-name"/><button className="icon-button ghost-bar" disabled tabIndex={-1} aria-hidden="true"/></div><div className="track-mix"><button className="ghost-bar" disabled tabIndex={-1} aria-hidden="true"/><button className="ghost-bar" disabled tabIndex={-1} aria-hidden="true"/><span className="level-knob ghost-dot"/></div></div></div>;
+  // While the waveform knob turns, every clip picture gets its scale directly (one style write each, promoted to its own layer for
+  // the moment); the stored value (and the CSS variable that new clips read) is set once on release.
+  const waveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewWave = (value: number) => {
+    const root = section.current; if (!root) return;
+    root.classList.add('is-waving');
+    root.querySelectorAll<SVGElement>('.waveform-clip svg').forEach(svg => { if (!svg.hasAttribute('data-direct')) svg.style.transform = `scaleY(${value})`; });
+    if (waveTimer.current) clearTimeout(waveTimer.current);
+    waveTimer.current = setTimeout(() => root.classList.remove('is-waving'), 250);
+  };
+  useLayoutEffect(() => { section.current?.querySelectorAll<SVGElement>('.waveform-clip svg').forEach(svg => { if (!svg.hasAttribute('data-direct')) svg.style.removeProperty('transform'); }); }, [waveHeight]);
   const ticks = Array.from({ length: 11 }, (_, i) => duration * i / 10);
   return <section ref={section} style={{ '--wave-height': waveHeight, '--row-height': `${rowHeight}px` } as React.CSSProperties} className={`panel multitrack ${panning ? 'is-panning' : ''} ${brushMode ? 'is-brush' : ''} ${shiftHeld ? 'is-shift' : ''} ${backdrop?.on ? 'is-backdrop' : ''}`} aria-label="Stem timeline">
     <div ref={rangeCursor} className="range-cursor" aria-hidden="true"><svg viewBox="0 0 30 20" width="30" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><g className="rc-l"><path d="M6 3v14M6 3h4M6 17h4"/></g><g className="rc-r"><path d="M24 3v14M24 3h-4M24 17h-4"/></g><g className="rc-m"><path d="M10.5 10h9M12.5 8l-2 2 2 2M17.5 8l2 2-2 2" strokeWidth="1.6"/></g></svg></div>
@@ -557,7 +568,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
       <div className="toolbar-bank meter-bank"><button className={`icon-button ${metering ? 'is-active' : ''}`} aria-pressed={metering} aria-label="Channel level meters" data-tip={'Level meters\nShow a thin level bar on each channel while playing. Turn off if playback stutters.'} onClick={() => setMetering(value => !value)}><Activity size={14}/></button></div>
       <div className="toolbar-bank history-bank"><button className="icon-button" disabled={!historyState.undo} aria-label="Undo" data-tip={'Undo\nCtrl+Z'} onClick={() => travel('undo')}><Undo2 size={14}/></button><button className="icon-button" disabled={!historyState.redo} aria-label="Redo" data-tip={'Redo\nCtrl+Shift+Z or Ctrl+Y'} onClick={() => travel('redo')}><Redo2 size={14}/></button></div>
       <div className="toolbar-bank range-bank">{selection ? <><output>{clock(selection.start)} → {clock(selection.end)}</output><button className={`icon-button loop-lock ${loopLocked ? 'is-active' : ''}`} aria-label="Loop-lock selection" aria-pressed={loopLocked} data-tip={loopLocked ? 'Unlock loop' : 'Loop selected range'} onClick={lockLoop}><Repeat2 size={14}/>{loopLocked && <LockKeyhole size={9}/>}</button><button className="icon-button" aria-label="Clear selection" data-tip="Clear selection" onClick={() => transport.clearSelection()}><X size={12}/></button></> : <span className="range-hint" data-tip={'Select a range\nShift + drag on the timeline to select and loop a range.'}><Repeat2 size={13}/></span>}</div>
-      <div className="toolbar-bank zoom-bank"><WaveformKnob value={waveHeight} onChange={setWaveHeight} onPreview={value => section.current?.style.setProperty("--wave-height", String(value))} rowValue={knobFromRow(rowHeight)} onRowChange={value => { setRowHeight(rowFromKnob(value)); setRowHeights({}); }} onRowPreview={value => section.current?.style.setProperty("--row-height", `${rowFromKnob(value)}px`)} video={backdrop?.on ? { value: backdrop.opacity, onChange: backdrop.change, onPreview: backdrop.preview } : undefined} onSizing={active => { section.current?.classList.toggle('is-sizing', active); if (active) section.current?.querySelectorAll<HTMLElement>('.timeline-track').forEach(el => el.style.removeProperty('--row')); }}/><span className="tool-divider"/><button className="icon-button" disabled={zoom <= 1} onClick={() => setZoom(value => Math.max(1, value / 2))} aria-label="Zoom out" data-tip="Zoom out"><ZoomOut size={15}/></button><output>{zoom}×</output><button className="icon-button" disabled={zoom >= 8} onClick={() => setZoom(value => Math.min(8, value * 2))} aria-label="Zoom in" data-tip="Zoom in"><ZoomIn size={15}/></button></div>
+      <div className="toolbar-bank zoom-bank"><WaveformKnob value={waveHeight} onChange={setWaveHeight} onPreview={previewWave} rowValue={knobFromRow(rowHeight)} onRowChange={value => { setRowHeight(rowFromKnob(value)); setRowHeights({}); }} onRowPreview={value => section.current?.style.setProperty("--row-height", `${rowFromKnob(value)}px`)} video={backdrop?.on ? { value: backdrop.opacity, onChange: backdrop.change, onPreview: backdrop.preview } : undefined} onSizing={active => { section.current?.classList.toggle('is-sizing', active); if (active) section.current?.querySelectorAll<HTMLElement>('.timeline-track').forEach(el => el.style.removeProperty('--row')); }}/><span className="tool-divider"/><button className="icon-button" disabled={zoom <= 1} onClick={() => setZoom(value => Math.max(1, value / 2))} aria-label="Zoom out" data-tip="Zoom out"><ZoomOut size={15}/></button><output>{zoom}×</output><button className="icon-button" disabled={zoom >= 8} onClick={() => setZoom(value => Math.min(8, value * 2))} aria-label="Zoom in" data-tip="Zoom in"><ZoomIn size={15}/></button></div>
       <div className="toolbar-bank export-bank"><button disabled={exporting || !stems.length || !canExportVideo} onClick={() => exportVideo(mix)} data-tip={canExportVideo ? 'Export video with the current mix' : 'Video export needs a video source'}><Film size={14}/><span>Video</span></button><button disabled={exporting || !tracks.length} onClick={() => setMixOpen(true)} data-tip={'Export mix\nRender the current mix to WAV or FLAC.'}><Layers size={14}/><span>Mix</span></button><button disabled={exporting || !stems.length} onClick={() => save()} data-tip="Download all channels"><ArrowDownToLine size={14}/><span>Stems</span></button></div>
     </div>
     <div className="timeline-status"><span>CHANNELS / {stems.length}{picked.size > 0 ? ` · ${picked.size} SELECTED` : ''}</span>{allMuted && <button className="all-muted" onClick={unmuteAll} data-tip={'Every channel is muted, so nothing plays. Click to unmute all.'}>All channels are muted · Unmute all</button>}{loading && <span role="status">Reading waveforms…</span>}</div>
