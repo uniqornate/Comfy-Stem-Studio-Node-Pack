@@ -59,7 +59,7 @@ export function stemWorkflow(options = {}) {
   graph['3'] = { class_type: 'StemStudioAudioRange', inputs: { audio: [options.edits ? '7' : '1', 0], start_seconds: start, end_seconds: end } };
   graph['2'].inputs.audio = ['3', 0];
   if (options.mode === 'uss' && options.target === 'All') Object.assign(graph['2'].inputs, { range_reference: [options.edits ? '7' : '1', 0], range_start: start, suppress_duplicates: true });
-  else for (const [save, restore, index] of [['10', '4', 0], ['11', '5', 1]]) {
+  else for (const [save, restore, index] of ['uss', 'sam', 'guidesep'].includes(options.mode) ? [['10', '4', 0], ['11', '5', 1]] : CHANNELS.map((channel, position) => [channel.node, `r${channel.node}`, position])) {
     graph[restore] = { class_type: 'StemStudioRestoreRange', inputs: { audio: ['2', index], reference: [options.edits ? '7' : '1', 0], start_seconds: start } };
     graph[save].inputs.audio = [restore, 0];
   }

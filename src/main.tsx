@@ -391,15 +391,16 @@ function App() {
       } else setJob(await window.desktop.separateStems(profile, source.url, { model, mode: 'stems' }));
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
-  async function extractDetail(request: DetailRequest, mode: 'uss' | 'sam' | 'guidesep' = 'uss', chosen = 'All', guidance?: SAMGuidance, referenceAudio?: ReferenceAudio) {
+  async function extractDetail(request: DetailRequest, mode: 'uss' | 'sam' | 'guidesep' | 'stems' = 'uss', chosen = 'All', guidance?: SAMGuidance, referenceAudio?: ReferenceAudio, separator?: string) {
     if (!window.desktop || !canSeparate || !currentRun?.runId) return;
     if (!shownStems.some(stem => stem.id === request.stem.id)) return;
-    setActiveOperation('uss'); setDetailRequest(request); setDetailMode(mode === 'sam' ? 'sam' : 'uss'); setTarget(chosen); setLastGuidance(guidance); setDetailOpen(false);
-    usageKey.current = mode;
+    setActiveOperation('uss'); setDetailRequest(request); setDetailMode(mode === 'sam' ? 'sam' : 'uss'); if (mode !== 'stems') setTarget(chosen); setLastGuidance(guidance); setDetailOpen(false);
+    usageKey.current = mode === 'stems' ? separator || 'mrx' : mode;
     setError(''); setSaveNotice('');
     const base = { range: { start: request.start, end: request.end }, parentId: request.stem.id, rootRunId: currentRun.runId, edits: timelines.current[currentRun.runId]?.edits?.[request.stem.id] };
     try {
-      if (mode === 'guidesep') setJob(await window.desktop.separateStems(profile, request.stem.url, { ...base, mode: 'guidesep', target: chosen, referenceUrl: (referenceAudio || reference)?.url, referenceOffset }));
+      if (mode === 'stems') setJob(await window.desktop.separateStems(profile, request.stem.url, { ...base, mode: 'stems', model: separator || 'mrx' }));
+      else if (mode === 'guidesep') setJob(await window.desktop.separateStems(profile, request.stem.url, { ...base, mode: 'guidesep', target: chosen, referenceUrl: (referenceAudio || reference)?.url, referenceOffset }));
       else setJob(await window.desktop.separateStems(profile, request.stem.url, { ...base, mode, samModel: mode === 'sam' ? samVariant : undefined, target: chosen, threshold: 0.1, autoThreshold: mode === 'uss', ...(mode === 'sam' && guidance ? { sam: guidance, videoUrl: source?.url } : {}) }));
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
@@ -558,7 +559,7 @@ function App() {
       {saveNotice && !settings && <p className="save-notice" role="status" onClick={() => setSaveNotice('')} data-tip="Click to dismiss"><Check size={14}/>{saveNotice}</p>}
       {error && !settings && <p className="error-banner" role="alert">{error}</p>}
     </main>
-    {detailOpen && detailRequest && <DetailPicker reference={reference} setReference={setReference} referenceOffset={referenceOffset} setReferenceOffset={setReferenceOffset} variant={samVariant} setVariant={setSAMVariant} sourceUrl={source?.url || ''} submitShortcut={detailShortcut} request={detailRequest} profile={profile} engine={engine} busy={jobBusy} close={() => setDetailOpen(false)} extract={(mode, target, guidance, referenceAudio) => void extractDetail(detailRequest, mode, target, guidance, referenceAudio)}/>}
+    {detailOpen && detailRequest && <DetailPicker reference={reference} setReference={setReference} referenceOffset={referenceOffset} setReferenceOffset={setReferenceOffset} variant={samVariant} setVariant={setSAMVariant} sourceUrl={source?.url || ''} submitShortcut={detailShortcut} request={detailRequest} profile={profile} engine={engine} busy={jobBusy} close={() => setDetailOpen(false)} extract={(mode, target, guidance, referenceAudio, separator) => void extractDetail(detailRequest, mode, target, guidance, referenceAudio, separator)}/>}
     {modelModal === 'sam' && <ModelModal icon={<Sparkles size={15}/>} title="SAM Audio" close={() => setModelModal(null)} note={!source ? 'Open a source first' : sourceGuidanceError || (samReady ? 'Pulls the sound from the whole source' : 'Prepare SAM Audio first')} runLabel="Extract sound" runDisabled={!canSeparate || !modelReady} run={() => { setModelModal(null); void separate(); }}>
       <SAMVariantSwitch variant={samVariant} setVariant={setSAMVariant} disabled={jobBusy} largeAvailable={!!engine?.samModels} reset={() => setSAM(null)}/>
       {playback.duration > 0 ? <SAMGuidanceEditor key={`${source?.url}:${playback.duration}`} range={wholeRange} sourceUrl={source?.url || ''} value={sourceGuidance} change={setSourceGuidance} supported={!!engine?.samPrompts} visualSupported={!!engine?.samVisual && !sourceIsAudio}/> : <p className="helper">Open a source to describe the sound you want.</p>}
