@@ -8,6 +8,7 @@
 
 | Work | Status | Owner | Scope | Next |
 |---|---|---|---|---|
+| W-20261030-02 | WAITING_USER | Codex | Clarify ComfyUI navigation entry and add user-provided screenshot to README. | User checks the published README and navigation entry in their ComfyUI layout. |
 | W-20261030-01 | WAITING_USER | Codex | Publish NodePack 0.13.38 and document long-media and project features. | User verifies the GitHub version and performs live ComfyUI acceptance. |
 | W-20261027-09 | WAITING_USER | Codex | 0.13.38: audio-only preparation, bounded media transfer and sequential source-time audio sections, mirrored with desktop 0.12.45. | User restarts ComfyUI and checks long-source separation in the browser node pack. |
 | W-20261025-08 | WAITING_USER | Codex | 0.13.37: stable Shift multi-channel selection on pointer press; mirrored with desktop 0.12.44. | User checks repeated Shift-clicks on channel headers in the running node pack. |
@@ -24,6 +25,18 @@
 1. User checks the published 0.13.38 NodePack in ComfyUI with a 293 MiB video and a source whose extracted audio exceeds 96 MiB. Earlier UI acceptance remains user-owned.
 
 ## CHRONOLOGICAL LOG
+
+### W-20261030-02: Document the navigation icon
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+
+  Time: 2026-10-30T21:38:31+03:00 | Work: W-20261030-02
+
+  Trigger: User asked whether the NodePack README identifies the three-line navigation icon and requested the supplied screenshot be included.
+  Change: The install steps now identify the Stem Studio slider icon and tooltip, note that ComfyUI navigation can be left, top or bottom, and show the user's supplied screenshot.
+  Validation: Confirmed the screenshot file is present and README image path resolves; git diff --check passed. No live ComfyUI test was run.
+  Artifacts: README.md, docs/images/stem-studio-navigation.png, docs/HANDOFF.md.
+  Next: User checks the published instructions against their ComfyUI layout.
 
 ### W-20261030-01: Publish NodePack 0.13.38
 
