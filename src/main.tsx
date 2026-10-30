@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AudioLines, ArrowLeft, CircleHelp, Lightbulb, Music4, ScanSearch, SlidersHorizontal, Sparkles, ArrowUpRight, Check, Clapperboard, FolderOpen, Link2, LoaderCircle, Plus, Save, Settings2, ShieldCheck, Play, Pause, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { AudioLines, ArrowLeft, CircleHelp, Lightbulb, Music4, ScanSearch, SlidersHorizontal, Sparkles, ArrowUpRight, Check, Clapperboard, FolderOpen, Link2, LoaderCircle, Plus, Save, Settings2, ShieldCheck, Play, Pause, Trash2, ZoomIn, ZoomOut, X } from 'lucide-react';
 import type { Connection, Profile, Source, ProxyState, Engine, StemJob, ExportState, Stem, SAMGuidance, ProjectInfo, ProjectSession, ProjectPayload, TimelineView, ReferenceAudio } from './types';
 import './styles.css';
 const comfyWordmark = new URL('./assets/comfy/comfy-wordmark.svg', import.meta.url).href;
@@ -34,11 +34,13 @@ import { BatchPanel } from './BatchPanel';
 import { BrushModal } from './BrushModal';
 import { clampFloat, resizeFloat } from './float-geometry.mjs';
 import { helpKeyApplies, playbackKeyApplies } from './keys.mjs';
-import { removeChannels } from './channels.mjs';
+import { removeChannels, ungroupDetails } from './channels.mjs';
+import { emptyHistory, record, undo, redo, type History } from './history.mjs';
 import { analyzeSource, suggestModel } from './source-profile.mjs';
 import type { BatchOptions, MixExportOptions } from './types';
 const STEM_MODELS = ['mrx', 'bandit', 'sfc'];
 const AUDIO_SOURCE = /\.(mp3|wav|flac|m4a|aac|ogg|opus)$/i;
+type WorkspaceSnapshot = { runs: StemJob[]; selectedRun: string; timelines: Record<string, TimelineView>; hiddenStemIds: string[] };
 
 const initial: Profile = { comfyUrl: 'http://127.0.0.1:8188', proxyUrl: 'http://127.0.0.1:8189', installation: '', managedProxy: false, setupComplete: false };
 function App() {
@@ -59,10 +61,14 @@ function App() {
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [recent, setRecent] = useState<ProjectInfo[]>([]);
+  const [projectDelete, setProjectDelete] = useState<ProjectInfo | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectBusy, setProjectBusy] = useState(false);
   const [projectStatus, setProjectStatus] = useState('Loading project…');
   const timelines = useRef<Record<string, TimelineView>>({});
+  const hiddenStemIds = useRef(new Set<string>());
+  const history = useRef<History<WorkspaceSnapshot>>(emptyHistory());
+  const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const session = useRef<ProjectPayload | null>(null);
   const switching = useRef(false);
   const pendingTransport = useRef<ProjectSession['view']['transport'] | null>(null);
@@ -146,7 +152,18 @@ function App() {
   const activeId = currentRun?.runId || '';
   const selectedRef = useRef(''); selectedRef.current = activeId;
   const pickRun = (id: string) => { setSelectedRun(id); setDetailRequest(null); setDetailOpen(false); };
-  const shownStems = currentRun?.stems || job.stems;
+  const shownStems = currentRun?.stems || [];
+  const captureHistory = (view?: TimelineView): WorkspaceSnapshot => ({ runs, selectedRun: activeId, timelines: { ...timelines.current, ...(activeId && view ? { [activeId]: view } : {}) }, hiddenStemIds: [...hiddenStemIds.current] });
+  const syncHistory = () => setHistoryState({ undo: history.current.past.length > 0, redo: history.current.future.length > 0 });
+  const recordHistory = (view?: TimelineView) => { history.current = record(history.current, captureHistory(view)); syncHistory(); };
+  const travelHistory = (direction: 'undo' | 'redo', view?: TimelineView) => {
+    const result = (direction === 'undo' ? undo : redo)(history.current, captureHistory(view));
+    if (!result) return null;
+    history.current = result.history; syncHistory();
+    timelines.current = result.state.timelines; hiddenStemIds.current = new Set(result.state.hiddenStemIds); setRuns(result.state.runs); setSelectedRun(result.state.selectedRun);
+    setDetailRequest(null); setDetailOpen(false);
+    return { runId: result.state.selectedRun, view: result.state.timelines[result.state.selectedRun] };
+  };
   const modelNames: Record<string, string> = Object.fromEntries(MODELS.map(item => [item.id, item.name]));
   const modelKind = MODELS.find(item => item.id === model)?.kind || 'stems';
   const sourceIsAudio = !!source && AUDIO_SOURCE.test(source.name);
@@ -221,7 +238,9 @@ function App() {
   const projectInitialized = useRef(false);
   function hydrateProject(value: ProjectSession) {
     transport.pause();
+    history.current = emptyHistory(); syncHistory();
     timelines.current = value.view.timelines || {};
+    hiddenStemIds.current = new Set(value.view.hiddenStemIds || []);
     pendingTransport.current = value.view.transport || { position: 0, duration: 0, selection: null, loopLocked: false };
     setProject(value.info); setProjectName(value.info.name); setSource(value.source); setRuns(value.runs); setJob(value.job);
     setSelectedRun(value.runs.find(run => run.runId === value.view.selectedRun)?.runId || value.runs.at(-1)?.runId || '');
@@ -248,7 +267,7 @@ function App() {
   useEffect(() => {
     if (pendingTransport.current && (!source?.url || video?.getAttribute('src') === source.url)) { transport.restore(pendingTransport.current); pendingTransport.current = null; }
   }, [project?.id, video, source?.url, transport]);
-  session.current = project ? { projectId: project.id, runs, view: { selectedRun, model, activeOperation, target, detailMode, samVariant, lastGuidance, detailRequest, layoutZoom, workspaceShare, timelineExpanded, floatPosition, floatSize, exportMode, transport: pendingTransport.current || transport.snapshot(), timelines: timelines.current } } : null;
+  session.current = project ? { projectId: project.id, runs, view: { selectedRun, hiddenStemIds: [...hiddenStemIds.current], model, activeOperation, target, detailMode, samVariant, lastGuidance, detailRequest, layoutZoom, workspaceShare, timelineExpanded, floatPosition, floatSize, exportMode, transport: pendingTransport.current || transport.snapshot(), timelines: timelines.current } } : null;
   const rememberTimeline = useCallback((value: TimelineView) => { if (selectedRun) timelines.current[selectedRun] = value; }, [selectedRun]);
   const currentPayload = (): ProjectPayload | null => session.current ? { ...session.current, view: { ...session.current.view, transport: pendingTransport.current || transport.snapshot(), timelines: { ...timelines.current } } } : null;
   const savedTransport = useRef<ProjectPayload['view']['transport'] | null>(null);
@@ -280,13 +299,14 @@ function App() {
     try {
       await flushProject();
       const value = await window.desktop.projectAction(action, currentPayload()!, argument);
-      if (value && 'runs' in value) { hydrateProject(value); setProjectsOpen(false); }
+      if (value && 'runs' in value) { hydrateProject(value); if (action !== 'delete') setProjectsOpen(false); }
       else if (value?.info) { setProject(value.info); setProjectName(value.info.name); }
       setRecent(await window.desktop.recentProjects());
+      if (action === 'delete') setProjectDelete(null);
     } catch (cause) { setError(String(cause)); }
     finally { switching.current = false; setProjectBusy(false); }
   }
-  async function showProjects() { setProjectsOpen(true); if (window.desktop) setRecent(await window.desktop.recentProjects()); }
+  async function showProjects() { setProjectDelete(null); setProjectsOpen(true); if (window.desktop) setRecent(await window.desktop.recentProjects()); }
   const initialized = useRef(false);
   useEffect(() => {
     if (!window.desktop || initialized.current) return;
@@ -326,25 +346,37 @@ function App() {
     const timer = setInterval(read, jobIdle ? 3000 : 1000);
     return () => { active = false; clearInterval(timer); };
   }, [jobIdle]);
-  // Channels a job just added slide in once; the set clears shortly after so revisiting a take does not replay it.
+  const jobStemSignature = job.stems.map(stem => stem.id).join(',');
+  const freshSeen = useRef(new Set<string>());
+  // Each completed audio section appears as soon as its outputs are ready.
   useEffect(() => {
-    if (job.phase !== 'complete' || !job.runId || !job.stems.length) return;
-    setFresh(new Set(job.stems.map(stem => stem.id)));
+    if (!job.runId || !job.stems.length) return;
+    const added = job.stems.map(stem => stem.id).filter(id => !freshSeen.current.has(id));
+    if (!added.length) return;
+    added.forEach(id => freshSeen.current.add(id));
+    setFresh(new Set(added));
     const timer = setTimeout(() => setFresh(new Set()), 6000);
     return () => clearTimeout(timer);
-  }, [job.runId]);
+  }, [job.runId, jobStemSignature]);
   // A finished job becomes part of the project. Results that finished while the interface was not looking (a new job started
   // before the last answer was read, or the page was in a background tab) arrive once as `job.earlier` and are added the same way.
   const adoptRun = (done: StemJob) => {
-    if (done.phase !== 'complete' || !done.runId) return;
+    if (!done.runId || !done.stems.length) return;
+    const kept = done.stems.filter(stem => !hiddenStemIds.current.has(stem.id));
+    if (!kept.length) return;
     if (done.rootRunId) {
-      setRuns(values => values.map(value => value.runId === done.rootRunId ? { ...value, stems: [...value.stems, ...done.stems.filter(stem => !value.stems.some(existing => existing.id === stem.id))] } : value));
+      setRuns(values => values.map(value => value.runId === done.rootRunId ? { ...value, stems: [...value.stems, ...kept.filter(stem => !value.stems.some(existing => existing.id === stem.id))] } : value));
     } else {
-      setRuns(values => values.some(value => value.runId === done.runId) ? values : [...values, done].slice(-12));
-      setSelectedRun(done.runId!);
+      setRuns(values => {
+        const existing = values.find(value => value.runId === done.runId);
+        if (!existing) return [...values, { ...done, stems: kept }].slice(-12);
+        const added = kept.filter(stem => !existing.stems.some(item => item.id === stem.id));
+        return added.length ? values.map(value => value.runId === done.runId ? { ...value, stems: [...value.stems, ...added] } : value) : values;
+      });
+      if (!runs.some(value => value.runId === done.runId)) setSelectedRun(done.runId!);
     }
   };
-  useEffect(() => { adoptRun(job); }, [job.runId]);
+  useEffect(() => { adoptRun(job); }, [job.runId, jobStemSignature]);
   useEffect(() => { if (job.earlier?.length) { for (const item of job.earlier) adoptRun(item); setFresh(new Set(job.earlier.flatMap(item => item.stems.map(stem => stem.id)))); } }, [job.earlier]);
   const connected = connection?.comfy && connection.proxy;
   const proxyWorking = preparingProxy || ['checking', 'downloading', 'installing', 'starting'].includes(proxyState?.phase || '');
@@ -429,6 +461,8 @@ function App() {
     if (jobBusy && job.rootRunId && (others || job.rootRunId === id)) return;
     const remaining = others ? runs.filter(run => run.runId === id) : runs.filter(run => run.runId !== id);
     if (remaining.length === runs.length) return;
+    recordHistory();
+    for (const run of runs) if (!remaining.includes(run)) for (const stem of run.stems) hiddenStemIds.current.add(stem.id);
     for (const run of runs) if (!remaining.includes(run) && run.runId) delete timelines.current[run.runId];
     const index = runs.findIndex(run => run.runId === id);
     setRuns(remaining);
@@ -451,10 +485,16 @@ function App() {
   function deleteChannels(ids: string[]) {
     const runId = currentRun?.runId;
     if (!runId || (jobBusy && job.rootRunId === runId)) return;
+    for (const id of ids) hiddenStemIds.current.add(id);
     const result = removeChannels(runs, runId, ids);
     setRuns(result.runs);
     if (result.takeRemoved) { delete timelines.current[runId]; setSelectedRun(result.runs.at(-1)?.runId || ''); }
     if (detailRequest && ids.includes(detailRequest.stem.id)) { setDetailRequest(null); setDetailOpen(false); }
+  }
+  function detachDetails(parentId: string) {
+    const runId = currentRun?.runId;
+    if (!runId || (jobBusy && job.rootRunId === runId)) return;
+    setRuns(values => ungroupDetails(values, runId, parentId));
   }
   function chooseModel(id: string) { setModel(id); setModelModal(modalFor(MODELS.find(item => item.id === id)?.kind)); }
   function makeReference(stem: Stem) { setReference({ name: stem.label, size: stem.size, url: stem.url }); setSaveNotice(`"${stem.label}" is now the GuideSep reference. Right-click a channel, choose Extract sound and pick GuideSep.`); }
@@ -554,7 +594,7 @@ function App() {
           onPointerMove={event => { const drag = floatDrag.current; if (!drag) return; const zoom = pageZoom(), dx = (event.clientX - drag.x) / zoom, dy = (event.clientY - drag.y) / zoom; if (Math.abs(dx) + Math.abs(dy) > 3 / zoom) drag.moved = true; if (drag.moved) { const box = clampFloat({ ...floatSize, left: drag.left + dx, top: drag.top + dy }, { width: window.innerWidth / zoom, height: window.innerHeight / zoom }); setFloatPosition({ x: box.left, y: box.top }); } }}
           onPointerUp={event => { floatMoved.current = !!floatDrag.current?.moved; floatDrag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { floatDrag.current = null; }} onLostPointerCapture={() => { floatDrag.current = null; }}>{timelineExpanded && ['n','s','e','w','nw','ne','sw','se'].map(edge => <div key={edge} className={`floating-edge floating-edge-${edge}`} onClick={event => event.stopPropagation()} onPointerDown={event => { event.preventDefault();event.stopPropagation();floatResize.current={edge,x:event.clientX,y:event.clientY,...floatSize,left:floatPosition.x,top:floatPosition.y};event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={resizeFloatBox} onPointerUp={event => {event.stopPropagation();floatResize.current=null;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);}} onPointerCancel={() => {floatResize.current=null;}} onLostPointerCapture={() => {floatResize.current=null;}}/>)}<div className="panel-heading"><h2>Preview</h2></div><div className={`preview-stage ${source ? 'has-source' : ''}`}>{source && !source.missing ? <><video ref={setVideo} key={source.url} src={source.url} onLoadedMetadata={event => setVideoRatio(event.currentTarget.videoWidth / event.currentTarget.videoHeight || 16 / 9)} onClick={() => { if (!timelineExpanded) void transport.toggle(); }} onError={() => setMediaError(true)}/>{sourceIsAudio && <div className="audio-badge"><AudioLines size={34}/><span>{source.name}</span></div>}{mediaError && <p className="video-error">Unsupported preview codec. Try an H.264 MP4 or a common audio format.</p>}</> : <div className="empty-preview"><button className="secondary-button" onClick={openVideo}><Plus size={16}/> Open video or audio</button></div>}</div><PreviewFooter transport={transport} playback={playback}/></section>
       </div>
-      <StemTimeline backdrop={timelineExpanded && source && !sourceIsAudio ? { on: previewBackdrop, toggle: () => setPreviewBackdrop(value => !value), opacity: backdropOpacity, preview: value => { (document.querySelector('.preview-panel.is-backdrop') as HTMLElement | null)?.style.setProperty('opacity', String(value)); }, change: setBackdropOpacity } : null} pending={jobBusy ? { message: job.message, progress: typeof job.progress === 'number' ? job.progress : null, eta: typeof job.eta === 'number' ? job.eta : null } : null} renameChannel={renameChannel} deleteChannels={deleteChannels} brushAvailable={!!source && !!connected && !!engine?.ready && !jobBusy && !projectBusy} onBrush={region => setBrushRegion(region)} closeTake={closeTake} key={`${project?.id || "scratch"}:${currentRun?.runId || "empty"}`} initialView={timelines.current[currentRun?.runId || ""]} onViewChange={rememberTimeline} details={details} detailBusy={jobBusy || !canSeparate} detailAvailable={!!engine?.detailRange} expanded={timelineExpanded} toggleExpanded={() => setTimelineExpanded(value => !value)} resize={resizeWorkspace} resetSize={() => setWorkspaceShare(0.46)} workspaceHeight={topHeight} resizeBounds={{ min: workspaceTop(workspaceAvailable, 0), max: workspaceTop(workspaceAvailable, Infinity) }} stems={shownStems} save={saveStems} takes={runs.map(run => ({ id: run.runId!, label: modelNames[run.model || ''] || run.model || 'Take' }))} selectedTake={currentRun?.runId || ''} selectTake={pickRun} freshIds={fresh} externalPreview={externalPreview} bringPreviewBack={() => void bringPreviewBack()} useAsReference={makeReference} exportMixFile={exportMixFile} sourceName={source?.name.replace(/\.[^.]+$/, '') || 'mix'} canExportVideo={!!source && !sourceIsAudio} exporting={exporting || videoExporting} exportVideo={mix => { exportMix.current = mix; setExportState({ phase: 'idle', progress: 0, message: '' }); setError(''); setExportOpen(true); }} independent={(currentRun?.model || job.model) === 'USS · All'} transport={transport} playback={playback}/>
+      <StemTimeline backdrop={timelineExpanded && source && !sourceIsAudio ? { on: previewBackdrop, toggle: () => setPreviewBackdrop(value => !value), opacity: backdropOpacity, preview: value => { (document.querySelector('.preview-panel.is-backdrop') as HTMLElement | null)?.style.setProperty('opacity', String(value)); }, change: setBackdropOpacity } : null} pending={jobBusy ? { message: job.message, progress: typeof job.progress === 'number' ? job.progress : null, eta: typeof job.eta === 'number' ? job.eta : null } : null} renameChannel={renameChannel} deleteChannels={deleteChannels} detachDetails={detachDetails} historyState={historyState} recordHistory={recordHistory} travelHistory={travelHistory} brushAvailable={!!source && !!connected && !!engine?.ready && !jobBusy && !projectBusy} onBrush={region => setBrushRegion(region)} closeTake={closeTake} key={`${project?.id || "scratch"}:${currentRun?.runId || "empty"}`} initialView={timelines.current[currentRun?.runId || ""]} onViewChange={rememberTimeline} details={details} detailBusy={jobBusy || !canSeparate} detailAvailable={!!engine?.detailRange} expanded={timelineExpanded} toggleExpanded={() => setTimelineExpanded(value => !value)} resize={resizeWorkspace} resetSize={() => setWorkspaceShare(0.46)} workspaceHeight={topHeight} resizeBounds={{ min: workspaceTop(workspaceAvailable, 0), max: workspaceTop(workspaceAvailable, Infinity) }} stems={shownStems} save={saveStems} takes={runs.map(run => ({ id: run.runId!, label: modelNames[run.model || ''] || run.model || 'Take' }))} selectedTake={currentRun?.runId || ''} selectTake={pickRun} freshIds={fresh} externalPreview={externalPreview} bringPreviewBack={() => void bringPreviewBack()} useAsReference={makeReference} exportMixFile={exportMixFile} sourceName={source?.name.replace(/\.[^.]+$/, '') || 'mix'} canExportVideo={!!source && !sourceIsAudio} exporting={exporting || videoExporting} exportVideo={mix => { exportMix.current = mix; setExportState({ phase: 'idle', progress: 0, message: '' }); setError(''); setExportOpen(true); }} independent={(currentRun?.model || job.model) === 'USS · All'} transport={transport} playback={playback}/>
       {playback.error && <p className="error-banner" role="alert">{playback.error}</p>}
       {saveNotice && !settings && <p className="save-notice" role="status" onClick={() => setSaveNotice('')} data-tip="Click to dismiss"><Check size={14}/>{saveNotice}</p>}
       {error && !settings && <p className="error-banner" role="alert">{error}</p>}
@@ -576,14 +616,14 @@ function App() {
     <Grain/>
     {shortcutsOpen && <ShortcutsPanel close={() => setShortcutsOpen(false)} usage={usage}/>}
     {projectsOpen && <div className="modal-backdrop"><section className="connection-modal projects-modal" role="dialog" aria-modal="true" aria-labelledby="projects-title">
-      <div className="modal-top"><span className="eyebrow"><FolderOpen size={14}/> PROJECTS</span><button className="icon-button" disabled={projectBusy} onClick={() => setProjectsOpen(false)} aria-label="Close projects"><X size={17}/></button></div>
-      <h2 id="projects-title">Your workspace.</h2>
-      <div className="project-current"><input className="project-name-input" aria-label="Project name" maxLength={100} value={projectName} onChange={event => setProjectName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.ctrlKey) void projectAction('rename', projectName); }}/><button className="secondary-button" disabled={projectBusy || !projectName.trim()} onClick={() => void projectAction('rename', projectName)}>Rename</button></div>
-      <p className="project-path" title={project?.path}>{project?.path}</p>
+      <div className="modal-top"><span className="projects-heading"><FolderOpen size={17}/><h2 id="projects-title">Projects</h2></span><button className="icon-button" disabled={projectBusy} onClick={() => { setProjectsOpen(false); setProjectDelete(null); }} aria-label="Close projects"><X size={17}/></button></div>
+      <div className="project-current"><span className="project-section-label">CURRENT</span><div className="project-name-row"><input className="project-name-input" aria-label="Project name" title={project?.path} maxLength={100} value={projectName} onChange={event => setProjectName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.ctrlKey) void projectAction('rename', projectName); }}/><button className="secondary-button" disabled={projectBusy || !projectName.trim() || projectName.trim() === project?.name} onClick={() => void projectAction('rename', projectName)}>Rename</button></div></div>
       <div className="project-actions"><button disabled={projectBusy || jobBusy || videoExporting} onClick={() => void projectAction('new', 'Untitled project')}><Plus size={14}/> New</button><button disabled={projectBusy || jobBusy || videoExporting} onClick={() => void projectAction('open')}><FolderOpen size={14}/> Open</button><button disabled={projectBusy || jobBusy || videoExporting} onClick={() => void projectAction('copy')}><Save size={14}/> Save as</button><button disabled={projectBusy} onClick={() => void projectAction('folder')}>Show folder</button>{source && <button disabled={projectBusy || jobBusy || videoExporting} onClick={() => void projectAction('relink')}>Relink video</button>}</div>
-      <div className="project-recent">{recent.map(item => <button key={item.path} disabled={projectBusy || jobBusy || videoExporting || item.path === project?.path} onClick={() => void projectAction('recent', item.path)}><span><strong>{item.name}</strong><small>{item.path}</small></span><time>{new Date(item.updatedAt).toLocaleDateString()}</time></button>)}</div>
+      <div className="project-list-heading"><span className="project-section-label">WORKFLOWS</span><small>{recent.length}</small></div>
+      <div className="project-recent" role="list">{recent.map(item => <div className={`project-row ${item.id === project?.id ? 'is-current' : ''}`} role="listitem" key={item.path}><button className="project-open" disabled={projectBusy || jobBusy || videoExporting || item.id === project?.id} title={item.path} onClick={() => void projectAction('recent', item.path)}><strong>{item.name}</strong>{item.id === project?.id && <span className="project-open-badge">OPEN</span>}</button><time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleDateString()}</time><button className="project-trash icon-button" disabled={projectBusy || jobBusy || videoExporting} aria-label={`Delete ${item.name}`} data-tip={`Delete project\n${item.name}`} onClick={() => setProjectDelete(item)}><Trash2 size={15}/></button></div>)}{!recent.length && <div className="project-empty">No saved projects yet.</div>}</div>
+      {projectDelete && <div className="project-delete-confirm" role="alertdialog" aria-label="Delete project"><span><strong>Delete {projectDelete.name}?</strong><small>Project record only. Media files stay on disk.</small></span><button className="secondary-button" disabled={projectBusy} onClick={() => setProjectDelete(null)}>Cancel</button><button className="project-delete-commit" disabled={projectBusy} onClick={() => void projectAction('delete', projectDelete.path)}><Trash2 size={14}/> Delete</button></div>}
       {error && <p className="error-banner" role="alert">{error}</p>}
-      <div className="modal-actions"><span className="subtle">{projectBusy ? 'Preparing project…' : 'Autosave on · resume last project'}</span><button className="primary-button" disabled={projectBusy} onClick={() => { void flushProject().then(() => setProjectsOpen(false)).catch(cause => setError(String(cause))); }}><Save size={14}/> Save</button></div>
+      <div className="modal-actions"><span className="subtle">{projectBusy ? 'Working…' : 'Autosaved'}</span><button className="primary-button" disabled={projectBusy} onClick={() => { void flushProject().then(() => setProjectsOpen(false)).catch(cause => setError(String(cause))); }}><Save size={14}/> Save</button></div>
     </section></div>}
     {exportOpen && <div className="modal-backdrop"><section className="connection-modal export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title"><div className="modal-top"><span className="eyebrow"><img className="comfy-modal-icon" src={comfyIcon} alt="Comfy"/> VIDEO EXPORT</span><button className="icon-button" disabled={videoExporting} onClick={() => setExportOpen(false)} aria-label="Close export"><X size={18}/></button></div><h2 id="export-title">Keep the picture.</h2><p className="modal-description">Saved by ComfyUI. Original video + lossless FLAC audio.</p><label>Audio<select value={exportMode} disabled={videoExporting} onChange={event => setExportMode(event.target.value as 'mix' | 'tracks')}><option value="mix">Current mix · mute, solo and levels</option><option value="tracks">Separate stem tracks · original levels</option></select></label><p className="helper">{exportMode === 'tracks' ? 'Embeds every stem as a separate selectable audio track. Mixer controls are ignored.' : 'Replaces the source audio with the current stem mix.'} MP4 · native ComfyUI SaveVideo.</p>{videoExporting && <div role="status"><progress max="1" value={exportState.progress}/><p className="helper">{exportState.message}</p></div>}{error && <p className="error-banner" role="alert">{error}</p>}<div className="modal-actions">{videoExporting ? <button className="secondary-button" onClick={() => void window.desktop?.cancelExport().catch(cause => setError(String(cause)))}>Cancel export</button> : <button className="secondary-button" onClick={() => setExportOpen(false)}>Cancel</button>}<button className="primary-button" disabled={videoExporting || !playback.duration} onClick={() => void exportVideo()}>{videoExporting ? 'Exporting…' : 'Export video'}</button></div></section></div>}
     {settings && <div className="modal-backdrop" onClick={event => { if (event.target === event.currentTarget && !busy && !saving && !proxyWorking) setSettings(false); }}>

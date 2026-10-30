@@ -8,15 +8,104 @@
 
 | Work | Status | Owner | Scope | Next |
 |---|---|---|---|---|
+| W-20261030-01 | WAITING_USER | Codex | Publish NodePack 0.13.38 and document long-media and project features. | User verifies the GitHub version and performs live ComfyUI acceptance. |
+| W-20261027-09 | WAITING_USER | Codex | 0.13.38: audio-only preparation, bounded media transfer and sequential source-time audio sections, mirrored with desktop 0.12.45. | User restarts ComfyUI and checks long-source separation in the browser node pack. |
+| W-20261025-08 | WAITING_USER | Codex | 0.13.37: stable Shift multi-channel selection on pointer press; mirrored with desktop 0.12.44. | User checks repeated Shift-clicks on channel headers in the running node pack. |
+| W-20261025-07 | WAITING_USER | Codex | 0.13.36 compact Projects dialog, active highlight and project-record deletion, mirrored with desktop 0.12.43. | User checks modal layout and deletes a disposable project in the running app. |
+| W-20261025-06 | WAITING_USER | Codex | 0.13.35: shared undo/redo across channel, edit and group changes; Ctrl+G group toggle; original-audio fallback. Mirrored with desktop 0.12.42. | User checks parent deletion undo/redo, grouping and empty-timeline playback in the running app. |
+| W-20261024-05 | WAITING_USER | Codex | 0.13.34: plain click clears the selected range, channel delete count is a trash badge; mirrored with desktop 0.12.41. | User checks range clearing and badge in the running UI. |
+| W-20261024-04 | WAITING_USER | Codex | 0.13.33: icon-only unmute warning, selection count only, momentary modifier rings and live function tooltips; mirrored with StemStudio desktop 0.12.40. | User checks toolbar and Alt/Ctrl press/release, stationary-hover tooltip and focus-loss reset. |
 | W-20261023-03 | WAITING_USER | Claude | 0.13.3: the Stem Studio sidebar tab opens the app in its own browser tab automatically (no overlay, no header bar). | User clicks the sidebar tab and checks the tab opens, and that a blocked pop-up leaves a working button. |
 | W-20261022-02 | WAITING_USER | Claude | 0.13.2: Help panel (coloured shortcut groups, Models page with measured peak VRAM/RAM/CPU), channel rename (double-click or Ctrl+R), brush icon on painted channels, new tile icons; same changes as the desktop repository 0.12.11. | User tests in ComfyUI. |
 | W-20261022-01 | WAITING_USER | Claude | Repository created from the node pack mode of the desktop repository (0.13.1): Stem Studio UI inside ComfyUI, browser Desktop adapter, Python preparation routes, brush models, six-stem music, MMAudio, batch, mix export. | User restarts ComfyUI with the pack installed, opens the Stem Studio tab and reports what breaks. |
 
 ### Next actions
 
-1. User opens ComfyUI, uses the Stem Studio sidebar tab, downloads MRX from Connection and runs a short separation; then the six-stem model, brush models and MMAudio preparation. Report console and network errors.
+1. User checks the published 0.13.38 NodePack in ComfyUI with a 293 MiB video and a source whose extracted audio exceeds 96 MiB. Earlier UI acceptance remains user-owned.
 
 ## CHRONOLOGICAL LOG
+
+### W-20261030-01: Publish NodePack 0.13.38
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+
+  Time: 2026-10-30T18:56:44+03:00 | Work: W-20261030-01
+
+  Trigger: User requested an urgent push of the latest NodePack and README feature review.
+  Change: Updated README with audio-first long-video processing, progressive sections and project resume. Published the existing 0.13.38 source and built app assets, which include previous mirrored changes.
+  Validation: 151 offline JavaScript tests passed, TypeScript/Vite build passed and git diff --check passed. No live ComfyUI job or media test was run.
+  Artifacts: README.md, package.json, package-lock.json, pyproject.toml, src/, comfy_nodes/StemStudio/, test/, docs/HANDOFF.md.
+  Next: User verifies the published NodePack with real media in ComfyUI.
+
+### W-20261027-09: Audio-first long-media processing
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+
+  Time: 2026-10-27T02:37:37+03:00 | Work: W-20261027-09
+  Trigger: User approved audio-only transfer and requested a section fallback for extracted audio above the upload cap.
+  Change: Large source video enters ComfyUI input in 8 MiB requests. The first audio stream is remuxed without re-encoding to a native input file. Audio under 96 MiB is processed once; larger audio runs sequential bounded intervals through StemStudioLoadAudioRange. Results become timeline channels at their original time as each interval finishes. Project reload retains interval metadata and preview only keeps nearby buffers. The installed local node pack was updated without restarting ComfyUI.
+  Mirroring: Desktop 0.12.45 performs the equivalent preparation, SDK submission and native range processing.
+  Validation: 151 offline JavaScript tests passed, including large-video transfer, multi-section outputs, project reload and shifted playback. TypeScript/Vite build and Python syntax checks passed. No live ComfyUI job, video playback or user-media processing was performed.
+  Artifacts: comfy_nodes/StemStudio/audio_prepare.py, comfy_nodes/StemStudio/media_transfer.py, comfy_nodes/StemStudio/detail_nodes.py, src/web-desktop.mjs, src/graphs.mjs, src/StemTimeline.tsx, src/media-transport.mjs, src/mixdown.mjs, test/web-desktop.test.mjs, docs/HANDOFF.md.
+  Next: User restarts ComfyUI and tests the 293 MiB source, then an audio track above 96 MiB.
+
+### W-20261025-08: Stable Shift channel selection
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+
+  Time: 2026-10-25T15:18:56+03:00 | Work: W-20261025-08
+
+  Trigger: User reports intermittent Shift multi-channel selection.
+  Change: Channel headers now read modifiers on pointer press instead of click completion. Shift range selection keeps its anchor through repeated picks and falls back to a visible selected channel when a group hides the old anchor. Clicking an already selected channel retains it as a usable anchor; blank-space clearing remains available. Ctrl toggling and Ctrl+Shift additive range selection are retained. Waveform Shift still selects a time range.
+  Mirroring: Shared timeline and selection helper match in desktop and node pack; node pack app assets rebuilt.
+  Validation: Offline JS tests passed: desktop 218, node pack 147, including repeated Shift and anchor cases. TypeScript/Vite builds passed in both repositories. Git diff --check passed. No live UI, media or ComfyUI test performed; user owns acceptance.
+  Artifacts: src/StemTimeline.tsx, src/channel-selection.mjs, src/channel-selection.d.mts, test/channel-selection.test.mjs, package.json, package-lock.json, pyproject.toml, comfy_nodes/StemStudio/app, docs/HANDOFF.md.
+  Next: User checks Shift selection from a new and an already selected channel, including successive range changes, in both surfaces.
+
+### W-20261025-07: Compact project browser and guarded deletion
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+  Time: 2026-10-25T14:09:35+03:00 | Work: W-20261025-07
+  Trigger: User asks for a compact Projects modal, highlighting the open workflow, and a trash action at the end of every row.
+  Change: Projects modal now has a compact header, current-project editor, action bank and one-line workflow rows. Long file paths moved to title hover. The current row has a lime rail and OPEN marker. Each row has a separate trash button and in-modal confirmation. Deletion removes only the chosen project record; media is kept. Deleting the active project opens an empty replacement. The selected project is checked against ComfyUI's project list before DELETE userdata is sent.
+  Mirroring: UI and styles updated in desktop and node pack; node-specific project APIs remain separate.
+  Validation: Offline JS tests passed: desktop 214, node pack 143, including both deletion paths. TypeScript/Vite builds passed in both repositories. Generated app assets rebuilt. No live UI, media playback or ComfyUI run performed. Existing desktop release EXEs remain older; no new installer was packaged.
+  Artifacts: src/main.tsx, src/styles.css, src/web-desktop.mjs, test/web-desktop.test.mjs, package.json, package-lock.json, pyproject.toml, comfy_nodes/StemStudio/app, docs/HANDOFF.md.
+  Next: User checks the modal, open-row marker and deletion of a disposable project in both running surfaces.
+
+### W-20261025-06: Unified workspace undo, group toggle and original audio fallback
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+  Time: 2026-10-25T14:03:54+03:00 | Work: W-20261025-06
+  Trigger: User reports undo/redo fails after deleting extracted parents, requests Ctrl+G/context ungroup and multi-channel grouping, and reports processed audio with no visible channels.
+  Change: History now lives above the keyed timeline and snapshots runs, selected take, timeline views and hidden stem IDs, so channel/group/edit undo and redo survive take removal. Ctrl+G ungroups a selected manual group member or extracted parent, and groups multiple selected ungrouped channels; context menus expose both ungroup actions. Empty timelines clear transport tracks and return to original video audio. Completed jobs are filtered against persistently hidden stem IDs in desktop and browser project saves so deleted outputs cannot silently reappear. Deletion dialog now explains Ctrl+Z restoration.
+  Mirroring: The timeline, channel and transport modules match across desktop and node pack. Node-specific project adapter and type shape are preserved.
+  Validation: TypeScript/Vite builds passed in both repositories. Offline JS tests passed: desktop 213, node pack 142, including history, ungroup, empty transport and completed-job deletion persistence. Git diff --check passed. Versions desktop 0.12.42 and node pack 0.13.35; built node-pack assets regenerated. No live UI, media playback or ComfyUI run was performed. Desktop Windows packaging failed on a locked QuietProcess.exe and electron-builder EPERM rename, including a separate staging directory; existing desktop release EXEs are older.
+  Artifacts: src/main.tsx, src/StemTimeline.tsx, src/channels.mjs, src/channels.d.mts, src/media-transport.mjs, src/types.ts, src/web-desktop.mjs, test/channels-rows.test.mjs, test/history-solo.test.mjs, test/media-transport.test.mjs, test/web-desktop.test.mjs, package.json, package-lock.json, pyproject.toml, comfy_nodes/StemStudio/app, docs/HANDOFF.md.
+  Next: User checks the parent-delete undo/redo, group shortcuts/context menu, and raw video audio fallback in both running surfaces.
+
+### W-20261024-05: Plain-click range deselection and trash badge (mirrored)
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+  Time: 2026-10-24T15:54:45+03:00 | Work: W-20261024-05
+  Trigger: User reports Shift-picked ranges need another Shift-click to deactivate and asks to remove the selection X and show the picked-channel count as a badge above the trash icon.
+  Change: Plain timeline seeking clears the transport range and loop lock before seeking, so the click can move the playhead outside the former loop. Plain clip move and empty timeline clicks also clear the range. Shift/brush picking and modifier gestures retain their current paths. The selection toolbar has one icon-only trash button, with a count badge, accessible label and deletion tooltip; the redundant X, inline count and status-strip selected count are removed. The existing delete confirmation remains.
+  Mirroring: StemTimeline.tsx is byte-identical across both repositories. CSS updates applied separately, preserving node pack-specific rules. Existing untracked dubbing media was left untouched.
+  Validation: TypeScript/Vite build passed in both repositories. Offline JS tests passed: desktop 209, node pack 138, including a synthetic looped-selection clear and outside seek check. Git diff --check, source mirror hash, version parity and node pack generated asset references passed. Desktop version 0.12.41 and node pack version 0.13.34. No real UI, playback, installer, inference or live ComfyUI tests were run; no new Windows exe was packaged.
+  Artifacts: src/StemTimeline.tsx, src/styles.css, test/media-transport.test.mjs, package.json, package-lock.json, node pack pyproject.toml and rebuilt comfy_nodes/StemStudio/app, docs/HANDOFF.md.
+  Next: User checks range clearing and channel badge/deletion in the app.
+
+### W-20261024-04: Compact toolbar and momentary knob modes (mirrored)
+
+- Agent: Codex (GPT-6) | Provider: OpenAI | Surface: Codex desktop
+  Time: 2026-10-24T15:50:02.050892+03:00 | Work: W-20261024-04
+  Trigger: User asks reading the newer handoff first, keeping desktop/node-pack UI mirrored, moving all-muted notice to an icon-only toolbar button, removing selected text, and making colored knob rings and tooltip functions follow held keys.
+  Change: All-muted action moved out of the status strip into a normal toolbar bank with VolumeX, accessible label and tooltip; unmute-all/undo behavior retained. Pick bank shows only its numeric count beside existing trash and clear icons; screen-reader label and hover help retain meaning. New shared modifier store uses capture-phase key/pointer flags, explicit Alt/Control key-up release, focus/pagehide/visibility reset, lazy shared subscription and stable snapshots during unchanged pointer movement. Waveform knob's row/video rings remain strictly tied to held modifiers (Alt priority; Ctrl only with backdrop video). Releasing/changing the mode ends an active drag/pending wheel action and commits its last value; focus loss also ends the gesture. Pending RAF preview flushes before final commit so a late preview cannot re-enter sizing/transform state. Level/pan knob shares the same modifier source and ends mismatched gestures consistently. TooltipLayer observes only the armed element's data-tip, reads current text when the delay expires, and refreshes an open tip on a mode change without requiring pointer movement; Alt/Control no longer dismiss the live knob tooltip.
+  Mirroring: WaveformKnob, LevelKnob, Tooltip, StemTimeline and modifier module/declaration match byte-for-byte between repositories. Shared CSS edit applied while retaining the node pack-specific Connection/pack-list rules. No desktop-only code copied to the node pack. Pre-existing untracked dubbing media in desktop left untouched.
+  Validation:137 offline JS tests pass here, including5 new modifier-store tests for explicit key release with stale event flags, Alt/Ctrl priority, focus/visibility/pagehide reset, missed-key-up pointer repair, stable snapshots, capture listeners and shared subscription cleanup. Both repositories pass TypeScript/Vite builds, mirrored source checks and generated HTML asset-reference checks. Desktop total208; node pack total137. Node-pack package/lock/pyproject versions agree at0.13.33 and its tracked comfy_nodes/StemStudio/app build is regenerated; desktop source/build version0.12.40. Git diff --check passes. No real app/browser/installer launch, media playback, inference, live service probe or installed-user ComfyUI modification performed. No new Windows exe was packaged.
+  Limits: Actual stationary-pointer tooltip behavior, Alt OS menu handling, drag/release UX and focus/tab transitions require user UI acceptance; offline state tests and builds do not prove those live behaviors. Existing unrelated feature acceptance remains open.
+  Artifacts: src/StemTimeline.tsx, WaveformKnob.tsx, LevelKnob.tsx, Tooltip.tsx, styles.css, modifier-keys.mjs/.d.mts; test/modifier-keys.test.mjs; package files; node pack pyproject.toml and rebuilt app assets; docs/HANDOFF.md.
+  Next: User checks the compact toolbar and modifier/tooltip sequence in both environments.
 
 ### W-20261023-03: Open in its own tab
 

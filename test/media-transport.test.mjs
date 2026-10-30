@@ -35,6 +35,14 @@ test('edited playback schedules trimmed audio at original timeline positions and
   assert.deepEqual(transport.sources.slice(0,4).map(source=>source.started),[[20,.5,.5],[20.5,1,1],[23.5,4,1],[24.5,5,1]]);
   transport.dispose();
 });
+test('a short processed section plays at its original video time', async () => {
+  const { transport, video, ctx } = fixture();
+  transport.setAudio(ctx, [{ stem: { id: 'section' }, buffer: { duration: 2 } }], { section: { mute: false, solo: false, level: 1 } });
+  transport.setEdits({ section: { clips: [{ id: 'full', start: 0, end: 2, offset: 5 }], gains: [] } });
+  video.currentTime = 5.5; await transport.play();
+  assert.deepEqual(transport.sources.map(source => source.started), [[20, 0.5, 1.5]]);
+  transport.dispose();
+});
 test('restored session clamps changed duration and never resumes playback automatically', () => {
   const { transport, video } = fixture();
   transport.restore({ position: 25, duration: 30, selection: { start: 20, end: 29 }, loopLocked: true });
@@ -68,6 +76,16 @@ test('original and stems route audio exclusively, mute/solo updates live gains',
   assert.equal(video.muted, false); assert.equal(transport.sources.length, 0);
   transport.setMode('stems'); transport.setMix({ ...mix, a: { ...mix.a, solo: true } });
   assert.equal(video.muted, true); assert.equal(transport.gains.get('b').gain.value, 0); transport.dispose();
+});
+
+test('removing the last preview track stops stem sources and unmutes the original video', async () => {
+  const { transport, video } = fixture(); await transport.play();
+  assert.equal(video.muted, true); assert.equal(transport.sources.length, 2);
+  transport.setTracks([]);
+  assert.equal(transport.snapshot().mode, 'original');
+  assert.equal(video.muted, false); assert.equal(transport.sources.length, 0);
+  assert.equal(video.paused, false);
+  transport.dispose();
 });
 test('drift and playback-rate changes reschedule audio against video', async () => {
   const { transport, video, ctx } = fixture(); await transport.play(); ctx.currentTime = 21; video.currentTime = 0.5; transport.tick();
@@ -171,5 +189,15 @@ test('channel meters tap each fader, read the peak and vanish when playback stop
   assert.equal(transport.level('a'), 0.5);
   transport.setMetering(false); assert.equal(transport.level('a'), 0); transport.setMetering(true); assert.equal(transport.level('a'), 0.5); assert.equal(transport.level('b'), 0.5); assert.equal(transport.level('missing'), 0);
   transport.pause(); assert.equal(transport.level('a'), 0);
+  transport.dispose();
+});
+
+test('plain navigation clears the selected loop before seeking outside it without stopping playback', async () => {
+  const { transport, video } = fixture();
+  transport.setSelection(2,4); transport.setLoopLocked(true); await transport.play();
+  transport.seek(8); assert.equal(video.currentTime,2);
+  transport.clearSelection(); transport.seek(8);
+  assert.equal(video.currentTime,8); assert.equal(video.paused,false);
+  assert.equal(transport.snapshot().selection,null); assert.equal(transport.snapshot().loopLocked,false);
   transport.dispose();
 });

@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { createWebDesktop, annotate, viewUrl, parseView, validRef } from '../src/web-desktop.mjs';
 
 const ORIGIN = 'http://comfy.test';
-const NODES = ['LoadAudio', 'SaveAudio', 'StemStudioSeparate', 'StemStudioExtract', 'StemStudioExtractAll', 'StemStudioEditAudio', 'LoadVideo', 'SaveVideo', 'StemStudioVideoTrack', 'StemStudioVideo', 'StemStudioAudioRange', 'StemStudioRestoreRange'];
+const NODES = ['LoadAudio', 'SaveAudio', 'StemStudioSeparate', 'StemStudioExtract', 'StemStudioExtractAll', 'StemStudioEditAudio', 'LoadVideo', 'SaveVideo', 'StemStudioVideoTrack', 'StemStudioVideo', 'StemStudioAudioRange', 'StemStudioRestoreRange', 'StemStudioLoadAudioRange'];
 
 // A tiny in-memory ComfyUI: upload, prompt/history/queue, view and userdata routes.
 function fakeComfy(options = {}) {
   const input = new Map(), output = new Map(), userdata = new Map(), history = new Map(), calls = [];
-  const state = { prompts: [], interrupts: [], deletes: [], running: false, failWith: null, targets: ['Door', 'Speech', 'All'], base: options.base || '' };
+  const state = { prompts: [], prepared: [], chunks: 0, interrupts: [], deletes: [], running: false, failWith: null, targets: ['Door', 'Speech', 'All'], base: options.base || '' };
   const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
   const files = type => (type === 'input' ? input : output);
   function execute(graph) {
@@ -43,6 +43,10 @@ function fakeComfy(options = {}) {
       const form = init.body; const file = form.get('image'); const subfolder = form.get('subfolder') || ''; const key = `${subfolder}/${file.name}`;
       input.set(key, new Uint8Array(await file.arrayBuffer())); return json({ name: file.name, subfolder, type: 'input' });
     }
+    if (path === '/stemstudio/media/init' && method === 'POST') return json({ token: 'testtransfer', chunkBytes: 8 * 1024 * 1024 });
+    if (path.startsWith('/stemstudio/media/testtransfer/') && method === 'PUT') { state.chunks++; return json({ received: state.chunks }); }
+    if (path === '/stemstudio/media/testtransfer/complete' && method === 'POST') { input.set('StemStudio/inbox/large.mp4', new Uint8Array([1])); return json({ type: 'input', subfolder: 'StemStudio/inbox', name: 'large.mp4' }); }
+    if (path === '/stemstudio/audio/prepare' && method === 'POST') { state.prepared.push(JSON.parse(init.body).audio); return json({ audio: 'StemStudio/audio/test.mka', size: options.audioSize || 3, duration: options.audioDuration || 10 }); }
     if (path === '/prompt' && method === 'POST') {
       if (state.reject) return json({ error: { message: state.reject }, node_errors: {} }, 400);
       const body = JSON.parse(init.body); const id = `p${state.prompts.length + 1}`; state.prompts.push(body.prompt);
@@ -62,6 +66,7 @@ function fakeComfy(options = {}) {
     if (path.startsWith('/userdata/')) {
       const key = decodeURIComponent(path.slice('/userdata/'.length));
       if (method === 'POST') { userdata.set(key, init.body); return json(key); }
+      if (method === 'DELETE') { if (!userdata.has(key)) return new Response('no', { status: 404 }); userdata.delete(key); return new Response(null, { status: 204 }); }
       return userdata.has(key) ? new Response(userdata.get(key), { status: 200, headers: { 'content-type': 'application/json' } }) : new Response('no', { status: 404 });
     }
     if (path.startsWith('/stemstudio/')) return json({ phase: 'idle', message: path, detail: '', ready: false });
@@ -130,6 +135,16 @@ test('source import uploads into ComfyUI input and the project survives a reload
   assert.equal(missing.source.missing, true); assert.match(missing.warnings.join(' '), /missing/i);
 });
 
+test('a large video is transferred in bounded requests before its audio is prepared', async () => {
+  const server = fakeComfy();
+  const large = { name: 'large.mp4', size: 101 * 1024 * 1024, slice: () => new Blob([1]) };
+  const { desktop } = make(server, { pickFile: async () => large });
+  const opened = await desktop.openVideo();
+  assert.equal(opened.size, large.size);
+  assert.equal(server.state.chunks, 13);
+  assert.ok(server.calls.includes('POST /stemstudio/media/testtransfer/complete'));
+});
+
 test('separation queues an annotated, project-scoped graph and returns real stem urls', async () => {
   const server = fakeComfy(); const { desktop } = make(server);
   const { session, opened } = await withSource(desktop);
@@ -139,7 +154,7 @@ test('separation queues an annotated, project-scoped graph and returns real stem
   const job = await waitFor(desktop, ['complete', 'failed']);
   assert.equal(job.phase, 'complete', job.message);
   const graph = server.state.prompts[0];
-  assert.match(graph['1'].inputs.audio, /^StemStudio\/inbox\//);
+  assert.equal(graph['1'].inputs.audio, 'StemStudio/audio/test.mka');
   assert.match(graph['10'].inputs.filename_prefix, new RegExp(`^StemStudio/${session.info.id}/[0-9a-f-]{36}/dialogue$`));
   assert.deepEqual(job.stems.map(stem => stem.label), ['Dialogue', 'Music', 'Effects']);
   assert.ok(job.stems.every(stem => stem.size === 4 && stem.url.startsWith('/view?')));
@@ -149,6 +164,34 @@ test('separation queues an annotated, project-scoped graph and returns real stem
   const again = await make(server).desktop.getProject();
   assert.equal(again.runs.length, 1); assert.equal(again.runs[0].stems.length, 3); assert.ok(again.runs[0].stems.every(stem => !stem.missing));
   assert.equal(again.view.selectedRun, job.runId);
+});
+
+test('oversize extracted audio queues bounded sections and exposes every output at its video time', async () => {
+  const server = fakeComfy({ audioSize: 250 * 1024 * 1024, audioDuration: 400 }); const { desktop } = make(server);
+  const { opened, session } = await withSource(desktop);
+  await desktop.separateStems(await desktop.getProfile(), opened.url, { model: 'mrx', mode: 'stems' });
+  const job = await waitFor(desktop, ['complete', 'failed']);
+  assert.equal(job.phase, 'complete', job.message);
+  assert.equal(server.state.prompts.length, 4);
+  assert.deepEqual(server.state.prompts.map(graph => [graph['1'].inputs.start_seconds, graph['1'].inputs.end_seconds]), [[0, 100], [100, 200], [200, 300], [300, 400]]);
+  assert.deepEqual(job.stems.filter(stem => stem.channelKey === 'dialogue').map(stem => [stem.start, stem.end]), [[0, 100], [100, 200], [200, 300], [300, 400]]);
+  assert.equal(new Set(job.stems.map(stem => stem.url)).size, 12);
+  await desktop.saveProject({ projectId: session.info.id, runs: [job], view: { selectedRun: job.runId } });
+  const reopened = await make(server).desktop.getProject();
+  assert.deepEqual(reopened.runs[0].stems.filter(stem => stem.channelKey === 'dialogue').map(stem => [stem.start, stem.end]), [[0, 100], [100, 200], [200, 300], [300, 400]]);
+});
+
+test('removed completed channels stay removed when the project saves again', async () => {
+  const server = fakeComfy(); const { desktop } = make(server);
+  const { session, opened } = await withSource(desktop);
+  await desktop.separateStems(await desktop.getProfile(), opened.url, { model: 'mrx', mode: 'stems' });
+  const job = await waitFor(desktop, ['complete']);
+  await desktop.saveProject({ projectId: session.info.id, runs: [], view: { hiddenStemIds: job.stems.map(stem => stem.id) } });
+  const restored = await make(server).desktop.getProject();
+  assert.deepEqual(restored.runs, []);
+  assert.deepEqual(restored.view.hiddenStemIds, job.stems.map(stem => stem.id));
+  await desktop.saveProject({ projectId: session.info.id, runs: [job], view: { hiddenStemIds: [] } });
+  assert.equal((await make(server).desktop.getProject()).runs[0].stems.length, job.stems.length);
 });
 
 test('a child detail run reads its parent from the output folder and stays attached to it', async () => {
@@ -161,7 +204,8 @@ test('a child detail run reads its parent from the output folder and stays attac
   const child = await waitFor(desktop, ['complete', 'failed']);
   assert.equal(child.phase, 'complete', child.message);
   const graph = server.state.prompts[1];
-  assert.match(graph['1'].inputs.audio, /\/dialogue_00001_\.flac \[output\]$/);
+  assert.equal(graph['1'].inputs.audio, 'StemStudio/audio/test.mka');
+  assert.match(server.state.prepared[1], /\/dialogue_00001_\.flac \[output\]$/);
   assert.equal(graph['3'].class_type, 'StemStudioAudioRange');
   assert.equal(child.parentId, parent.stems[0].id); assert.deepEqual(child.stems.map(s => s.label), ['Door', 'Remainder']);
 });
@@ -260,6 +304,20 @@ test('project actions: rename, new, copy, recent and relink', async () => {
   assert.equal(relinked.source.missing, false); assert.equal(server.input.size, 2);
   await assert.rejects(desktop.projectAction('nope', payload), /Unknown project action/);
   await assert.rejects(desktop.saveProject({ projectId: 'other', runs: [], view: {} }), /project changed/);
+});
+test('project deletion removes only the selected project record and replaces an active project', async () => {
+  const server = fakeComfy(); const { desktop } = make(server);
+  const first = await desktop.getProject();
+  const second = await desktop.projectAction('new', { projectId: first.info.id, runs: [], view: {} }, 'Second');
+  const firstPath = first.info.path;
+  assert.equal(await desktop.projectAction('delete', { projectId: second.info.id, runs: [], view: {} }, firstPath), null);
+  assert.ok(!server.userdata.has(`stemstudio/projects/${first.info.id}.json`));
+  assert.equal((await desktop.recentProjects()).some(item => item.id === first.info.id), false);
+  const replacement = await desktop.projectAction('delete', { projectId: second.info.id, runs: [], view: {} }, second.info.path);
+  assert.notEqual(replacement.info.id, second.info.id);
+  assert.equal((await make(server).desktop.getProject()).info.id, replacement.info.id);
+  assert.ok(!server.userdata.has(`stemstudio/projects/${second.info.id}.json`));
+  await assert.rejects(desktop.projectAction('delete', { projectId: replacement.info.id, runs: [], view: {} }, firstPath), /Choose a project/);
 });
 
 test('preparation requests are forwarded to the node pack routes', async () => {

@@ -15,6 +15,11 @@ test('mix plan honours mute, selection, level, clip edits and gain regions', () 
   assert.deepEqual(mixPlan({ tracks, mix, duration: 10, selected: ['c'] }).map(item => item.id), ['c']);
   assert.deepEqual(mixPlan({ tracks, mix, duration: 5 })[0].segments, [{ start: 0, end: 5, gain: 1 }]);
 });
+test('mix plan places a short processed section at the source video time', () => {
+  const edits = { section: { clips: [{ id: 'full', start: 0, end: 2, offset: 5 }], gains: [] } };
+  const plan = mixPlan({ tracks: [{ id: 'section', duration: 2 }], mix: { section: { mute: false, level: 1 } }, edits, duration: 10 });
+  assert.deepEqual(plan[0].segments, [{ start: 5, end: 7, gain: 1, source: 0 }]);
+});
 test('WAV encoder writes a valid header and clamps samples', () => {
   const samples = Float32Array.from([0, 1, -1, 2, -2, NaN]);
   for (const bits of [16, 24, 32]) {

@@ -3,6 +3,7 @@
 export async function audioNodes(endpoint, fetchImpl = fetch) {
   const required = ['LoadAudio', 'StemStudioSeparate', 'SaveAudio'];
   const names = [...required, 'StemStudioExtract', 'StemStudioExtractAll', 'StemStudioAudioRange', 'StemStudioRestoreRange', 'StemStudioSAM', 'StemStudioGuideSep', 'StemStudioEditAudio', 'StemStudioMusicSeparate', 'StemStudioVideoClip', 'MMAudioModelLoader', 'MMAudioFeatureUtilsLoader', 'MMAudioSampler', 'LoadVideo', 'CheckpointLoaderSimple', 'CLIPLoader', 'CLIPTextEncode', 'KSampler', 'EmptyLatentAudio', 'VAEDecodeAudio'];
+  names.push('StemStudioLoadAudioRange');
   const results = [];
   let next = 0;
   // A busy ComfyUI (a running job holds the Python interpreter) answers slowly. Few requests at a time, a generous timeout and one

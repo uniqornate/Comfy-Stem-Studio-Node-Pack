@@ -5,7 +5,7 @@ export function mixPlan({ tracks, mix, edits = {}, duration, selected }) {
   const chosen = selected ? new Set(selected) : null;
   return tracks.filter(track => (!chosen || chosen.has(track.id)) && !mix[track.id]?.mute).map(track => ({
     id: track.id, level: mix[track.id]?.level ?? 1, pan: mix[track.id]?.pan ?? 0,
-    segments: audibleSegments(edits[track.id], track.duration, 0, Math.min(track.duration, duration)).map(({ start, end, gain, source }) => ({ start, end, gain, ...(source !== undefined ? { source } : {}) })),
+    segments: audibleSegments(edits[track.id], track.duration, 0, edits[track.id] ? duration : Math.min(track.duration, duration)).map(({ start, end, gain, source }) => ({ start, end, gain, ...(source !== undefined ? { source } : {}) })),
   })).filter(item => item.segments.length);
 }
 // `samples` is one channel (Float32Array) or an array of channels of equal length (interleaved in the file).

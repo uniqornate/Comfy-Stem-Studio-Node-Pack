@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyHistory, record, undo, redo } from '../src/history.mjs';
 import { toggleSolo, toggleMute, normalizeSolo } from '../src/solo.mjs';
+import { channelFamily, removeChannels } from '../src/channels.mjs';
 
 const mix = () => ({ a: { mute: false, solo: false, level: 1 }, b: { mute: true, solo: false, level: .5 }, c: { mute: false, solo: false, level: 1 } });
 
@@ -15,6 +16,18 @@ test('history records, undoes, redoes and clears redo after a new edit', () => {
 test('history is bounded', () => {
   let h = emptyHistory(); for (let i = 0; i < 150; i++) h = record(h, i, 100);
   assert.equal(h.past.length, 100); assert.equal(h.past[0], 50);
+});
+
+test('one workspace undo restores an extracted parent, its children and group view; redo removes them again', () => {
+  const before = { runs: [{ runId: 'take', stems: [{ id: 'p' }, { id: 'detail', parentId: 'p' }] }], selectedRun: 'take', timelines: { take: { mix: { p: { level: 1 } }, groups: [{ id: 'g', members: ['p'] }] } } };
+  const ids = channelFamily(before.runs[0].stems, 'p');
+  const removed = removeChannels(before.runs, 'take', ids);
+  const after = { runs: removed.runs, selectedRun: '', timelines: {} };
+  const restored = undo(record(emptyHistory(), before), after);
+  assert.deepEqual(restored.state, before);
+  assert.equal(restored.state.runs[0].stems[1].parentId, 'p');
+  const removedAgain = redo(restored.history, restored.state);
+  assert.deepEqual(removedAgain.state, after);
 });
 test('solo mutes every other channel immediately and unsolo restores prior mute states', () => {
   const soloed = toggleSolo(mix(), 'a');

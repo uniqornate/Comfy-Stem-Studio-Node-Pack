@@ -1,6 +1,56 @@
 """Region-only detail processing with full-timeline, silence-padded outputs."""
 import math
 
+class StemStudioLoadAudioRange:
+    """Decode only the requested portion of a native ComfyUI input file."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {'required': {'file': ('STRING', {'default': ''}), 'start_seconds': ('FLOAT', {'default': 0, 'min': 0, 'max': 864000}), 'end_seconds': ('FLOAT', {'default': 60, 'min': 0, 'max': 864000})}}
+    RETURN_TYPES = ('AUDIO',)
+    FUNCTION = 'load'
+    CATEGORY = 'Stem Studio'
+
+    def load(self, file, start_seconds, end_seconds):
+        import av
+        import folder_paths
+        import torch
+        if not math.isfinite(start_seconds) or not math.isfinite(end_seconds) or start_seconds < 0 or end_seconds <= start_seconds or end_seconds > 864000:
+            raise ValueError('Choose a valid audio interval.')
+        path = folder_paths.get_annotated_filepath(file)
+        with av.open(path) as media:
+            if not media.streams.audio:
+                raise ValueError('The selected input has no audio stream.')
+            stream = media.streams.audio[0]
+            rate = stream.codec_context.sample_rate
+            channels = stream.channels
+            first, last = round(start_seconds * rate), round(end_seconds * rate)
+            waveform = torch.zeros((1, channels, last - first), dtype=torch.float32)
+            if start_seconds > 1:
+                media.seek(int((start_seconds - 1) / stream.time_base), stream=stream, backward=True)
+            cursor = 0
+            copied = False
+            for frame in media.decode(streams=stream.index):
+                data = torch.from_numpy(frame.to_ndarray())
+                if data.shape[0] != channels:
+                    data = data.reshape(-1, channels).T
+                if data.dtype == torch.int16:
+                    data = data.float() / 32768
+                elif data.dtype == torch.int32:
+                    data = data.float() / 2147483648
+                else:
+                    data = data.float()
+                position = round(float(frame.time) * rate) if frame.time is not None else cursor
+                cursor = position + data.shape[-1]
+                if position >= last:
+                    break
+                lo, hi = max(first, position), min(last, cursor)
+                if hi > lo:
+                    waveform[..., lo - first:hi - first] = data[:, lo - position:hi - position]
+                    copied = True
+            if not copied:
+                raise ValueError('The requested interval contains no audio.')
+            return ({'waveform': waveform, 'sample_rate': rate},)
+
 def bounds(audio, start_seconds, end_seconds):
     rate = int(audio['sample_rate'])
     if not math.isfinite(start_seconds) or not math.isfinite(end_seconds) or start_seconds < 0 or end_seconds <= start_seconds:

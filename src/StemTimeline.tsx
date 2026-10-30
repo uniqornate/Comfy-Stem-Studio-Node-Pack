@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Ghost, Folder, FolderPlus, ArrowDownToLine, Monitor, Layers, Mic, Paintbrush, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Repeat2, LockKeyhole, X, ChevronDown, ChevronRight, Crosshair, ScanSearch, Film, Scissors } from 'lucide-react';
+import { Activity, VolumeX, Ghost, Folder, FolderPlus, ArrowDownToLine, Monitor, Layers, Mic, Paintbrush, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Repeat2, LockKeyhole, X, ChevronDown, ChevronRight, Crosshair, ScanSearch, Film, Scissors } from 'lucide-react';
 import { fitEdit as channelEdit, splitEdit, trimEdit, moveEdit, placedStart, gainEdit, gainAt, placeCopy, clipAt, removeClip, type ChannelEdit } from './clip-edits.mjs';
 import { pointerTime } from './timeline-geometry.mjs';
 import { initialMix } from './detail-groups.mjs';
@@ -11,18 +11,17 @@ import { MediaTransport, type TransportState } from './media-transport.mjs';
 import { usePosition } from './usePlayback';
 import { clampRow, knobFromRow, ROW_DEFAULT, rowFromKnob } from './row-height.mjs';
 import { channelFamily } from './channels.mjs';
+import { pickChannelSelection } from './channel-selection.mjs';
 import { MixExportModal } from './MixExportModal';
 import { pageZoom } from './page-zoom.mjs';
 import type { MixExportOptions } from './types';
-import { emptyHistory, record, undo, redo, type History } from './history.mjs';
 import { toggleMute, toggleSolo, normalizeSolo } from './solo.mjs';
 
 type Mix = { mute: boolean; solo: boolean; level: number; pan?: number; restoreMute?: boolean };
-type Snapshot = { mix: Record<string, Mix>; edits: Record<string, ChannelEdit> };
 type Take = { id: string; label: string };
 // `buffer` is null for a channel that is not audible and would not fit in the preview memory budget; it is decoded again when needed.
 type Track = { stem: Stem; buffer: AudioBuffer | null; duration: number; channels: number; rate: number; peaks: number[]; path: string; peak: number };
-type Props = { backdrop?: { on: boolean; toggle: () => void; opacity: number; preview: (value: number) => void; change: (value: number) => void } | null; pending?: { message: string; progress: number | null; eta: number | null } | null; renameChannel: (id: string, label: string) => void; deleteChannels: (ids: string[]) => void; brushAvailable: boolean; onBrush: (region: { start: number; end: number }) => void; closeTake: (id: string, others?: boolean) => void; freshIds?: ReadonlySet<string>; externalPreview?: boolean; bringPreviewBack?: () => void; useAsReference: (stem: Stem) => void; exportMixFile: (options: MixExportOptions) => Promise<string | null>; sourceName: string; takes: Take[]; selectedTake: string; selectTake: (id: string) => void; canExportVideo: boolean; initialView?: TimelineView; onViewChange: (view: TimelineView) => void; stems: Stem[]; save: (id?: string) => void; exporting: boolean; independent?: boolean; transport: MediaTransport; playback: TransportState; exportVideo: (mix: Record<string, Mix>) => void; expanded: boolean; toggleExpanded: () => void; resize: (delta: number) => void; resetSize: () => void; workspaceHeight: number; resizeBounds: { min: number; max: number }; details: (stem: Stem, start: number, end: number, picker: boolean) => void; detailBusy: boolean; detailAvailable: boolean };
+type Props = { backdrop?: { on: boolean; toggle: () => void; opacity: number; preview: (value: number) => void; change: (value: number) => void } | null; pending?: { message: string; progress: number | null; eta: number | null } | null; renameChannel: (id: string, label: string) => void; deleteChannels: (ids: string[]) => void; detachDetails: (id: string) => void; historyState: { undo: boolean; redo: boolean }; recordHistory: (view: TimelineView) => void; travelHistory: (direction: 'undo' | 'redo', view: TimelineView) => { runId: string; view?: TimelineView } | null; brushAvailable: boolean; onBrush: (region: { start: number; end: number }) => void; closeTake: (id: string, others?: boolean) => void; freshIds?: ReadonlySet<string>; externalPreview?: boolean; bringPreviewBack?: () => void; useAsReference: (stem: Stem) => void; exportMixFile: (options: MixExportOptions) => Promise<string | null>; sourceName: string; takes: Take[]; selectedTake: string; selectTake: (id: string) => void; canExportVideo: boolean; initialView?: TimelineView; onViewChange: (view: TimelineView) => void; stems: Stem[]; save: (id?: string) => void; exporting: boolean; independent?: boolean; transport: MediaTransport; playback: TransportState; exportVideo: (mix: Record<string, Mix>) => void; expanded: boolean; toggleExpanded: () => void; resize: (delta: number) => void; resetSize: () => void; workspaceHeight: number; resizeBounds: { min: number; max: number }; details: (stem: Stem, start: number, end: number, picker: boolean) => void; detailBusy: boolean; detailAvailable: boolean };
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(1).padStart(4, '0')}`;
 function peaks(buffer: AudioBuffer) {
   const count = Math.min(2200, buffer.length), result = new Array(count).fill(0);
@@ -32,7 +31,7 @@ function peaks(buffer: AudioBuffer) {
   }
   return result;
 }
-const PREVIEW_BUDGET = 768 * 1024 * 1024;
+const PREVIEW_BUDGET = ((typeof navigator !== 'undefined' && (navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8) >= 8 ? 1536 : 768) * 1024 * 1024;
 const audibleIn = (mix: Record<string, Mix>, id: string) => { const value = mix[id]; return !!value && !value.mute && (!Object.values(mix).some(item => item.solo) || value.solo); };
 async function decodeStem(ctx: AudioContext, stem: Stem, signal?: AbortSignal) {
   const response = await fetch(stem.url, { signal });
@@ -67,20 +66,22 @@ function TimelineScrub({ transport, duration }: { transport: MediaTransport; dur
   const position = usePosition(transport);
   return <input className="timeline-scrub" type="range" min="0" max={duration || 1} step="0.01" value={position} onChange={event => transport.scrub(Number(event.target.value))} aria-label="Timeline playhead"/>;
 }
-export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels, brushAvailable, onBrush, closeTake, freshIds, externalPreview, bringPreviewBack, useAsReference, exportMixFile, sourceName, takes, selectedTake, selectTake, canExportVideo, initialView, onViewChange, stems, save, exporting, independent = false, transport, playback, exportVideo, expanded, toggleExpanded, resize, resetSize, workspaceHeight, resizeBounds, details, detailBusy, detailAvailable }: Props) {
+export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels, detachDetails, historyState, recordHistory, travelHistory, brushAvailable, onBrush, closeTake, freshIds, externalPreview, bringPreviewBack, useAsReference, exportMixFile, sourceName, takes, selectedTake, selectTake, canExportVideo, initialView, onViewChange, stems, save, exporting, independent = false, transport, playback, exportVideo, expanded, toggleExpanded, resize, resetSize, workspaceHeight, resizeBounds, details, detailBusy, detailAvailable }: Props) {
   const [tracks, setTracks] = useState<Track[]>([]), [mix, setMix] = useState<Record<string, Mix>>(() => normalizeSolo(initialView?.mix || {}));
   const mixRef = useRef(mix); mixRef.current = mix;
   const cache = useRef(new Map<string, Track>()), ctxRef = useRef<AudioContext | null>(null);
   const [edits, setEdits] = useState<Record<string, ChannelEdit>>(initialView?.edits || {});
   const editsRef = useRef(edits); editsRef.current = edits;
-  const history = useRef<History<Snapshot>>(emptyHistory());
-  const [historyState, setHistoryState] = useState({ undo: false, redo: false });
-  const syncHistory = () => setHistoryState({ undo: history.current.past.length > 0, redo: history.current.future.length > 0 });
-  const remember = () => { history.current = record(history.current, { mix: mixRef.current, edits: editsRef.current }); syncHistory(); };
+  const remember = () => recordHistory(viewRef.current);
   const travel = (direction: 'undo' | 'redo') => {
-    const result = (direction === 'undo' ? undo : redo)(history.current, { mix: mixRef.current, edits: editsRef.current });
-    if (!result) return;
-    history.current = result.history; syncHistory(); setMix(result.state.mix); setEdits(result.state.edits);
+    const result = travelHistory(direction, viewRef.current);
+    if (!result || result.runId !== selectedTake || !result.view) return;
+    const view = result.view;
+    viewRef.current = view;
+    setMix(normalizeSolo(view.mix)); setEdits(view.edits || {}); setGroups(view.groups || []);
+    setChannelColors(view.channelColors || {}); setCollapsed(new Set(view.collapsed || []));
+    setRowHeight(clampRow(view.rowHeight ?? ROW_DEFAULT)); setRowHeights(view.rowHeights || {});
+    setZoom(view.zoom); setWaveHeight(view.waveHeight);
   };
   const travelRef = useRef(travel); travelRef.current = travel;
   const [mixOpen, setMixOpen] = useState(false);
@@ -161,6 +162,8 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
   const rowGrip = useRef<{ y: number; height: number; id: string; track: HTMLElement } | null>(null);
   const [error, setError] = useState(''), [loading, setLoading] = useState(false), [panning, setPanning] = useState(false);
   const { duration, playing, selection, loopLocked } = playback;
+  const [horizon, setHorizon] = useState(0);
+  useEffect(() => transport.subscribe(state => { const band = Math.floor(state.position / 15); setHorizon(previous => previous === band ? previous : band); }), [transport]);
   // The skeleton row is where the brush paints; when the channel list reaches the bottom it is scrolled into view.
   const ghostLane = useRef<HTMLDivElement>(null);
   useEffect(() => { if (brushMode) ghostLane.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [brushMode, brushAll, duration]);
@@ -196,7 +199,14 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     window.addEventListener('pointerdown', dismiss); window.addEventListener('keydown', key);
     return () => { window.removeEventListener('pointerdown', dismiss); window.removeEventListener('keydown', key); };
   }, [deleteAsk]);
-  useEffect(() => { setEdits(previous => { const keep = Object.fromEntries(Object.entries(previous).filter(([id]) => stems.some(stem => stem.id === id))); return Object.keys(keep).length === Object.keys(previous).length ? previous : keep; }); }, [stems.map(stem => stem.id).join(',')]);
+  useEffect(() => { setEdits(previous => {
+    const keep = Object.fromEntries(Object.entries(previous).filter(([id]) => stems.some(stem => stem.id === id)));
+    for (const stem of stems) if (!keep[stem.id] && Number.isFinite(stem.start) && Number.isFinite(stem.end) && duration > 0) {
+      const length = Math.min(stem.end! - stem.start!, duration - stem.start!);
+      if (length > 0) keep[stem.id] = { clips: [{ id: 'full', start: 0, end: length, offset: stem.start! }], gains: [] };
+    }
+    return JSON.stringify(keep) === JSON.stringify(previous) ? previous : keep;
+  }); }, [stems.map(stem => stem.id).join(','), duration]);
   // One playhead for the whole timeline, on its own compositor layer. Moving it is a transform on that one element: no style
   // recalculation of the track rows and no repaint of the waveform lanes, however tall the rows are.
   const rail = useRef<HTMLElement>(null);
@@ -234,7 +244,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
   const editDrag = useRef<{ kind: 'gain' | 'start' | 'end' | 'move' | 'copy'; stem: Stem; id?: string; y: number; db: number; grab: number; initial: ChannelEdit; rect: DOMRect; element?: HTMLElement | null; wave?: { pxPerSecond: number }; latest?: ChannelEdit; copyId?: string } | null>(null);
   const editFrame = useRef<number | null>(null);
   const [gainDragging, setGainDragging] = useState(false);
-  const dragSnapshot = useRef<Snapshot | null>(null);
+  const dragSnapshot = useRef(false);
   const gesture = useRef<{ kind: 'seek' | 'select'; anchor: number } | null>(null);
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const resizeY = useRef<number | null>(null);
@@ -253,14 +263,16 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     setTracks(previous => previous.filter(track => stems.some(stem => stem.id === track.stem.id)));
     for (const id of cache.current.keys()) if (!stems.some(stem => stem.id === id)) cache.current.delete(id);
     const previousMix = mixRef.current;
-    if (!stems.length) { setLoading(false); setMix({}); return; }
+    if (!stems.length) { ctxRef.current = null; setTracks([]); setLoading(false); setMix({}); return; }
     let disposed = false; const controller = new AbortController(), ctx = new AudioContext(); setLoading(true); ctxRef.current = ctx;
     (async () => {
       const decoded: Track[] = []; let memory = 0;
       const planned = normalizeSolo(initialMix(stems, previousMix, independent));
       for (const stem of stems) {
         if (stem.missing) continue;
-        const cached = cache.current.get(stem.id), want = audibleIn(planned, stem.id);
+        const cached = cache.current.get(stem.id), position = transport.snapshot().position;
+        const nearby = stem.start === undefined || (stem.start <= position + 45 && stem.end! >= position - 5);
+        const want = audibleIn(planned, stem.id) && nearby;
         let track = cached;
         if (!track || (want && !track.buffer)) {
           const buffer = await decodeStem(ctx, stem, controller.signal);
@@ -280,11 +292,22 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     })().catch(cause => { if (!disposed) setError(cause.message); }).finally(() => { if (!disposed) setLoading(false); });
     return () => { disposed = true; controller.abort(); transport.pause(); transport.setAudio(null, [], {}); void ctx.close(); };
   }, [signature, independent, transport]);
-  // A channel that was left out of memory is decoded when it becomes audible; muted ones are dropped again when memory runs short.
+  // Long recordings keep nearby section buffers only. Peaks stay visible across the entire timeline.
+  useEffect(() => {
+    if (!stems.some(stem => stem.start !== undefined) || !tracks.length || loading) return;
+    const position = transport.snapshot().position;
+    const list = tracks.map(track => track.stem.start !== undefined && track.buffer && (track.stem.end! < position - 5 || track.stem.start > position + 75) ? { ...track, buffer: null } : track);
+    if (list.some((track, index) => track !== tracks[index])) {
+      for (const track of list) cache.current.set(track.stem.id, track);
+      setTracks(list); transport.setTracks(list);
+    }
+  }, [horizon, tracks, loading, stems, transport]);
+  // A nearby channel that was left out of memory is decoded when it becomes audible.
   const loadingCold = useRef(false);
   useEffect(() => {
-    const ctx = ctxRef.current; if (!ctx || loading || loadingCold.current) return;
-    const need = tracks.filter(track => !track.buffer && audibleIn(mix, track.stem.id));
+    const ctx = ctxRef.current; if (!stems.length || !ctx || loading || loadingCold.current) return;
+    const position = transport.snapshot().position;
+    const need = tracks.filter(track => !track.buffer && audibleIn(mix, track.stem.id) && (track.stem.start === undefined || (track.stem.start <= position + 45 && track.stem.end! >= position - 5)));
     if (!need.length) return;
     let cancelled = false; loadingCold.current = true;
     (async () => {
@@ -299,7 +322,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
       setTracks(list); transport.setTracks(list);
     })().catch(cause => { if (!cancelled) setError(cause.message); }).finally(() => { loadingCold.current = false; });
     return () => { cancelled = true; loadingCold.current = false; };
-  }, [mix, tracks, loading, transport]);
+  }, [mix, tracks, loading, stems.length, horizon, transport]);
   useEffect(() => { transport.setMix(mix); }, [mix, transport]);
   useEffect(() => { transport.setEdits(edits); }, [edits, transport]);
   useEffect(() => {
@@ -309,15 +332,24 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     window.addEventListener('pointerdown', dismiss); window.addEventListener('keydown', key);
     return () => { window.removeEventListener('pointerdown', dismiss); window.removeEventListener('keydown', key); };
   }, [groupMenu]);
-  // Ctrl+G groups the selected channels, after asking for a name.
+  // Ctrl+G ungroups a selected parent/group member; otherwise it groups the selection.
   const askGroup = useRef((_ids: string[]) => {});
   askGroup.current = ids => { if (ids.length) { setMenu(null); setGroupAsk({ ids, name: `Group ${groupsRef.current.length + 1}`, color: null }); } };
+  const toggleGroup = useRef((_ids: string[]) => {});
+  toggleGroup.current = ids => {
+    if (ids.length === 1) {
+      const id = ids[0], group = groupsRef.current.find(item => item.members.includes(id));
+      if (group) { remember(); setGroups(previous => ungroup(previous, group.id)); return; }
+      if (stems.some(stem => stem.parentId === id)) { remember(); detachDetails(id); return; }
+    }
+    askGroup.current(ids);
+  };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'g' || document.querySelector('.modal-backdrop') || (event.target as HTMLElement)?.matches('input:not([type=range]),textarea,select,[contenteditable=true]')) return;
       event.preventDefault(); if (event.repeat) return;
       const order = rowsRef.current.flatMap(row => row.stem ? [row.stem.id] : []);
-      askGroup.current(order.filter(id => pickedRef.current.picked.has(id)));
+      toggleGroup.current(order.filter(id => pickedRef.current.picked.has(id)));
     };
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
   }, []);
@@ -412,9 +444,10 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     const kind = requested === 'move' && event.altKey && !event.shiftKey && !brushRef.current.brushMode ? 'copy' : requested;
     if (kind === 'move' && (event.shiftKey || brushRef.current.brushMode)) return; // range picking keeps working over clips
     event.preventDefault(); event.stopPropagation();
+    if (kind === 'move') { transport.clearSelection(); setSelectionStem(null); setDragRange(false); }
     if ((kind === 'move' || kind === 'copy') && id) setPickedClip({ stem: stem.id, id });
     const lane = event.currentTarget.closest('.waveform-lane') as HTMLElement;
-    dragSnapshot.current = { mix: mixRef.current, edits: editsRef.current };
+    dragSnapshot.current = true;
     const initial = channelEdit(editsRef.current[stem.id], duration);
     const moving = kind === 'move' || kind === 'copy' ? initial.clips.find(clip => clip.id === id) : undefined;
     const grab = moving ? pointerTime(event.clientX, lane.getBoundingClientRect().left, lane.getBoundingClientRect().width, duration) - placedStart(moving) : 0;
@@ -432,7 +465,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
   }
   function editMove(event: React.PointerEvent<HTMLElement>) {
     const drag = editDrag.current; if (!drag) return; event.stopPropagation();
-    if (dragSnapshot.current) { history.current = record(history.current, dragSnapshot.current); dragSnapshot.current = null; syncHistory(); }
+    if (dragSnapshot.current) { remember(); dragSnapshot.current = false; }
     const at = pointerTime(event.clientX, drag.rect.left, drag.rect.width, duration);
     const placed = drag.kind === 'copy' ? placeCopy(drag.initial, drag.initial.clips.find(clip => clip.id === drag.id)!, at - drag.grab, duration) : null;
     if (drag.kind === 'copy') drag.copyId = placed?.id;
@@ -450,7 +483,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     // Gain and copy change several parts of the row, so they go through state, at most once per frame.
     if (editFrame.current === null) editFrame.current = requestAnimationFrame(() => { editFrame.current = null; const current = editDrag.current; if (current?.latest) { const edit = current.latest; setEdits(previous => ({ ...previous, [current.stem.id]: edit })); } });
   }
-  function editEnd(event: React.PointerEvent<HTMLElement>) { if (!editDrag.current) return; event.stopPropagation(); const finished = editDrag.current; if (editFrame.current !== null) { cancelAnimationFrame(editFrame.current); editFrame.current = null; } if (finished.latest) { const edit = finished.latest; setEdits(previous => ({ ...previous, [finished.stem.id]: edit })); } else clearDirect(); if (finished.copyId) setPickedClip({ stem: finished.stem.id, id: finished.copyId }); editDrag.current = null; dragSnapshot.current = null; setGainDragging(false); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }
+  function editEnd(event: React.PointerEvent<HTMLElement>) { if (!editDrag.current) return; event.stopPropagation(); const finished = editDrag.current; if (editFrame.current !== null) { cancelAnimationFrame(editFrame.current); editFrame.current = null; } if (finished.latest) { const edit = finished.latest; setEdits(previous => ({ ...previous, [finished.stem.id]: edit })); } else clearDirect(); if (finished.copyId) setPickedClip({ stem: finished.stem.id, id: finished.copyId }); editDrag.current = null; dragSnapshot.current = false; setGainDragging(false); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }
   const seek = (at: number) => transport.seek(at);
   function point(event: React.PointerEvent<HTMLElement>) { const rect = event.currentTarget.getBoundingClientRect(); return pointerTime(event.clientX, rect.left, rect.width, duration); }
   function seekPointer(event: React.PointerEvent<HTMLElement>, stemId?: string) {
@@ -461,7 +494,7 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     const at = point(event); const selecting = event.shiftKey || brushRef.current.brushMode;
     gesture.current = { kind: selecting ? 'select' : 'seek', anchor: at };
     if (selecting) setSelectionStem(stemId ?? null);
-    if (!selecting) { seek(at); return; }
+    if (!selecting) { transport.clearSelection(); setSelectionStem(null); setDragRange(false); if (!event.ctrlKey && !event.metaKey && !event.altKey) setPicked(new Set()); seek(at); return; }
     // Choosing a range while playing leaves the video and audio alone: seeking on every move would restart every channel.
     if (!transport.snapshot().playing) { transport.setSelection(at, at); transport.scrub(at); }
     paintDrag(at, at); setDragRange(true);
@@ -514,23 +547,23 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     if (!groupAsk) return;
     const { ids, id, stem, name, color } = groupAsk;
     if (stem) {
+      remember();
       if (name.trim() && name.trim() !== stems.find(item => item.id === stem)?.label) renameChannel(stem, name);
       setChannelColors(previous => { const { [stem]: _drop, ...rest } = previous; return color ? { ...rest, [stem]: color } : rest; });
       setGroupAsk(null); return;
     }
+    if (id || ids) remember();
     if (id) setGroups(previous => recolorGroup(renameGroup(previous, id, name), id, color)); else if (ids) setGroups(previous => createGroup(previous, ids, name, color, `g-${crypto.randomUUID().slice(0, 8)}`));
     setGroupAsk(null);
   }
-  function pick(event: React.MouseEvent, id: string) {
-    if ((event.target as Element).closest('button,input,.row-grip,.level-knob')) return;
+  function pick(event: React.PointerEvent<HTMLElement>, id: string) {
+    if (event.button !== 0 || (event.target as Element).closest('button,input,.row-grip,.level-knob')) return;
     setPickedClip(null);
     const order = rows.flatMap(row => row.stem ? [row.stem.id] : []);
-    setPicked(previous => {
-      if (event.shiftKey && pickAnchor.current && order.includes(pickAnchor.current) && order.includes(id)) { const a = order.indexOf(pickAnchor.current), b = order.indexOf(id); return new Set(order.slice(Math.min(a, b), Math.max(a, b) + 1)); }
-      if (event.ctrlKey || event.metaKey) { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; }
-      return previous.size === 1 && previous.has(id) ? new Set() : new Set([id]);
-    });
-    pickAnchor.current = id;
+    const next = pickChannelSelection(order, pickedRef.current.picked, pickAnchor.current, id, { shift: event.shiftKey, toggle: event.ctrlKey || event.metaKey });
+    pickAnchor.current = next.anchor;
+    pickedRef.current.picked = next.selected;
+    setPicked(next.selected);
   }
   // The left half of a skeleton row uses the real row's classes, so its placeholders sit exactly where name, mute, solo and knob do.
   const ghostControls = <div className="track-controls"><div className="track-head"><div className="track-name"><span className="track-number ghost-bar"/><strong className="ghost-bar ghost-name"/><button className="icon-button ghost-bar" disabled tabIndex={-1} aria-hidden="true"/></div><div className="track-mix"><button className="ghost-bar" disabled tabIndex={-1} aria-hidden="true"/><button className="ghost-bar" disabled tabIndex={-1} aria-hidden="true"/><span className="level-knob ghost-dot"/></div></div></div>;
@@ -568,24 +601,25 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
       </div>
       <div className="toolbar-bank view-bank">{externalPreview && <button className="icon-button is-active" aria-label="Bring the preview back" data-tip={'Preview is on another display\nClick to bring it back here.'} onClick={bringPreviewBack}><Monitor size={14}/></button>}{backdrop && <button className={`icon-button ${backdrop.on ? 'is-active' : ''}`} aria-label="Preview behind the timeline" aria-pressed={backdrop.on} data-tip={backdrop.on ? 'Preview behind the timeline\nClick to bring the preview back to its small window. Hold Ctrl and turn the waveform knob to fade the video.' : 'Preview behind the timeline\nFits the video behind the whole timeline, faded. Hold Ctrl and turn the waveform knob to set its opacity.'} onClick={backdrop.toggle}><Ghost size={15}/></button>}<button className="icon-button timeline-expand" aria-label={expanded ? 'Restore workspace layout' : 'Expand timeline'} aria-pressed={expanded} data-tip={expanded ? 'Restore layout\nTab' : 'Arrange view\nTab'} onClick={toggleExpanded}>{expanded ? <Minimize2 size={15}/> : <Maximize2 size={15}/>}</button></div>
       <div className="toolbar-bank brush-bank"><button className={`icon-button ${brushMode ? 'is-active' : ''}`} disabled={!brushAvailable} aria-pressed={brushMode} aria-label="Brush" data-tip={brushAvailable ? 'Brush (B)\nDrag over a region, then describe the sound to paint into a new channel. Hold Alt and click to brush the whole timeline. B toggles, Esc leaves.' : 'Brush\nOpen a source and connect to ComfyUI first.'} onClick={() => setBrushMode(value => !value)}><Paintbrush size={14}/></button></div>
-      {picked.size > 0 && <div className="toolbar-bank pick-bank"><output>{picked.size} selected</output><button className="icon-button" aria-label={`Delete ${picked.size} selected channels`} data-tip={'Delete selected\nDelete key. The audio stays on disk.'} onClick={event => { const box = event.currentTarget.getBoundingClientRect(); askDelete([...picked], box.left - 100, box.bottom + 6); }}><Trash2 size={14}/></button><button className="icon-button" aria-label="Clear channel selection" data-tip="Clear selection" onClick={() => setPicked(new Set())}><X size={12}/></button></div>}
+      {picked.size > 0 && <div className="toolbar-bank pick-bank"><button className="icon-button selection-trash" aria-label={`Delete ${picked.size} selected channels`} data-tip={`Delete ${picked.size} selected channel${picked.size === 1 ? '' : 's'}\nDelete key. The audio stays on disk.`} onClick={event => { const box = event.currentTarget.getBoundingClientRect(); askDelete([...picked], box.left - 100, box.bottom + 6); }}><Trash2 size={14}/><span className="selection-count-badge" aria-hidden="true">{picked.size}</span></button></div>}
       <div className="toolbar-bank meter-bank"><button className={`icon-button ${metering ? 'is-active' : ''}`} aria-pressed={metering} aria-label="Channel level meters" data-tip={'Level meters\nShow a thin level bar on each channel while playing. Turn off if playback stutters.'} onClick={() => setMetering(value => !value)}><Activity size={14}/></button></div>
+      {allMuted && <div className="toolbar-bank mute-warning-bank"><button className="icon-button all-muted" aria-label="Unmute all channels" onClick={unmuteAll} data-tip={'All channels are muted\nClick to unmute all channels.'}><VolumeX size={14}/></button></div>}
       <div className="toolbar-bank history-bank"><button className="icon-button" disabled={!historyState.undo} aria-label="Undo" data-tip={'Undo\nCtrl+Z'} onClick={() => travel('undo')}><Undo2 size={14}/></button><button className="icon-button" disabled={!historyState.redo} aria-label="Redo" data-tip={'Redo\nCtrl+Shift+Z or Ctrl+Y'} onClick={() => travel('redo')}><Redo2 size={14}/></button></div>
       <div className="toolbar-bank range-bank">{selection ? <><output>{clock(selection.start)} → {clock(selection.end)}</output><button className={`icon-button loop-lock ${loopLocked ? 'is-active' : ''}`} aria-label="Loop-lock selection" aria-pressed={loopLocked} data-tip={loopLocked ? 'Unlock loop' : 'Loop selected range'} onClick={lockLoop}><Repeat2 size={14}/>{loopLocked && <LockKeyhole size={9}/>}</button><button className="icon-button" aria-label="Clear selection" data-tip="Clear selection" onClick={() => transport.clearSelection()}><X size={12}/></button></> : <span className="range-hint" data-tip={'Select a range\nShift + drag on the timeline to select and loop a range.'}><Repeat2 size={13}/></span>}</div>
       <div className="toolbar-bank zoom-bank"><WaveformKnob value={waveHeight} onChange={value => { endWave(); setWaveHeight(value); }} onPreview={previewWave} rowValue={knobFromRow(rowHeight)} onRowChange={value => { setRowHeight(rowFromKnob(value)); setRowHeights({}); }} onRowPreview={value => section.current?.style.setProperty("--row-height", `${rowFromKnob(value)}px`)} video={backdrop?.on ? { value: backdrop.opacity, onChange: backdrop.change, onPreview: backdrop.preview } : undefined} onSizing={active => { section.current?.classList.toggle('is-sizing', active); if (active) section.current?.querySelectorAll<HTMLElement>('.timeline-track').forEach(el => el.style.removeProperty('--row')); }}/><span className="tool-divider"/><button className="icon-button" disabled={zoom <= 1} onClick={() => setZoom(value => Math.max(1, value / 2))} aria-label="Zoom out" data-tip="Zoom out"><ZoomOut size={15}/></button><output>{zoom}×</output><button className="icon-button" disabled={zoom >= 8} onClick={() => setZoom(value => Math.min(8, value * 2))} aria-label="Zoom in" data-tip="Zoom in"><ZoomIn size={15}/></button></div>
       <div className="toolbar-bank export-bank"><button disabled={exporting || !stems.length || !canExportVideo} onClick={() => exportVideo(mix)} data-tip={canExportVideo ? 'Export video with the current mix' : 'Video export needs a video source'}><Film size={14}/><span>Video</span></button><button disabled={exporting || !tracks.length} onClick={() => setMixOpen(true)} data-tip={'Export mix\nRender the current mix to WAV or FLAC.'}><Layers size={14}/><span>Mix</span></button><button disabled={exporting || !stems.length} onClick={() => save()} data-tip="Download all channels"><ArrowDownToLine size={14}/><span>Stems</span></button></div>
     </div>
-    <div className="timeline-status"><span>CHANNELS / {stems.length}{picked.size > 0 ? ` · ${picked.size} SELECTED` : ''}</span>{allMuted && <button className="all-muted" onClick={unmuteAll} data-tip={'Every channel is muted, so nothing plays. Click to unmute all.'}>All channels are muted · Unmute all</button>}{loading && <span role="status">Reading waveforms…</span>}</div>
+    <div className="timeline-status"><span>CHANNELS / {stems.length}</span>{loading && <span role="status">Reading waveforms…</span>}</div>
     {stems.some(stem => stem.missing) && <p className="helper" role="status">Missing channels: {stems.filter(stem => stem.missing).map(stem => stem.label).join(", ")}. Project references are retained.</p>}{error && <p className="error-banner" role="alert">{error}</p>}
     {error && !tracks.length && <div className="timeline-export-fallback">{stems.map(stem => <button className="quiet-button" key={stem.id} disabled={exporting} onClick={() => save(stem.id)}><ArrowDownToLine size={13}/>{stem.label}</button>)}</div>}
     <TimelineScrub transport={transport} duration={duration}/>
-    <div ref={scroll} className="timeline-scroll" onScroll={event => { setMenu(null); viewRef.current = { ...viewRef.current, scrollLeft: event.currentTarget.scrollLeft, scrollTop: event.currentTarget.scrollTop }; onViewChange(viewRef.current); }} onPointerDownCapture={panStart} onPointerMoveCapture={panMove} onPointerUpCapture={panEnd} onPointerCancelCapture={panEnd} onLostPointerCapture={event => { if (event.target === scroll.current) { pan.current = null; setPanning(false); } }} onAuxClick={event => { if (event.button === 1) event.preventDefault(); }}><div className="timeline-grid" style={{ width: `${zoom * 100}%`, minWidth: '100%' }}>
+    <div ref={scroll} className="timeline-scroll" onPointerDown={event => { const target = event.target as HTMLElement; if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || brushRef.current.brushMode) return; if (target !== event.currentTarget && !target.classList.contains('timeline-grid') && !target.classList.contains('timeline-loading')) return; transport.clearSelection(); setSelectionStem(null); setDragRange(false); setPicked(new Set()); setPickedClip(null); }} onScroll={event => { setMenu(null); viewRef.current = { ...viewRef.current, scrollLeft: event.currentTarget.scrollLeft, scrollTop: event.currentTarget.scrollTop }; onViewChange(viewRef.current); }} onPointerDownCapture={panStart} onPointerMoveCapture={panMove} onPointerUpCapture={panEnd} onPointerCancelCapture={panEnd} onLostPointerCapture={event => { if (event.target === scroll.current) { pan.current = null; setPanning(false); } }} onAuxClick={event => { if (event.button === 1) event.preventDefault(); }}><div className="timeline-grid" style={{ width: `${zoom * 100}%`, minWidth: '100%' }}>
       <div className="track-ruler-label">CHANNEL / MIX</div><div className="track-ruler" onPointerDown={seekPointer} onPointerMove={dragSeek} onPointerUp={endSeek} onPointerCancel={cancelGesture} onLostPointerCapture={cancelGesture}>{!brushMode && (selection || dragRange) && <div className="timeline-selection" style={dragRange ? dragStyle : rangeStyle}/>} {ticks.map((value, index) => <span key={index} style={{ left: `${index * 10}%` }}>{clock(value)}</span>)}</div>
       {rows.map((row, index) => { if (row.group) { const group = row.group; return <div className={`timeline-track group-row track-color-${row.color}`} key={`group-${group.id}`} style={{ '--row': '30px', ...(row.hex ? { '--track': row.hex } : {}) } as React.CSSProperties}>
         <div className="track-controls group-head" onContextMenu={event => groupContext(event, group)} onDoubleClick={() => setGroupAsk({ id: group.id, name: group.name, color: group.color ?? null })}><button className="group-fold" aria-label={`${collapsed.has(group.id) ? 'Expand' : 'Collapse'} ${group.name}`} aria-expanded={!collapsed.has(group.id)} onClick={() => setCollapsed(previous => { const next = new Set(previous); next.has(group.id) ? next.delete(group.id) : next.add(group.id); return next; })}>{collapsed.has(group.id) ? <ChevronRight size={12}/> : <ChevronDown size={12}/>}</button><Folder className="group-icon" size={12}/><strong title={group.name}>{group.name}</strong><small>{row.count}</small></div>
         <div className="waveform-lane group-lane" onContextMenu={event => groupContext(event, group)} onPointerDown={seekPointer} onPointerMove={dragSeek} onPointerUp={endSeek} onPointerCancel={cancelGesture} onLostPointerCapture={cancelGesture}/>
       </div>; } const stem = row.stem!, track = row.track, depth = row.depth, color = row.color; const { peaks: data, path } = track!; const hasChildren = stems.some(child => child.parentId === stem.id); return <div className={`timeline-track track-color-${color} ${depth ? 'is-child' : ''} ${mix[stem.id]?.mute ? 'is-muted' : ''} ${freshIds?.has(stem.id) ? 'is-entering' : ''}`} key={stem.id} style={{ ...(channelColors[stem.id] || row.hex ? { '--track': channelColors[stem.id] || row.hex } : {}), ...(rowHeights[stem.id] ? { '--row': `${rowHeights[stem.id]}px` } : {}), ...(freshIds?.has(stem.id) ? { '--enter-delay': `${Math.min(index, 14) * 38}ms` } : {}) } as React.CSSProperties}>
-        <div className={`track-controls ${picked.has(stem.id) ? 'is-picked' : ''}`} style={{ paddingLeft: 10 + Math.min(depth, 4) * 12 }} onClick={event => pick(event, stem.id)} onContextMenu={event => context(event, stem)}><div className="row-grip" role="separator" aria-orientation="horizontal" aria-label={`Resize ${stem.label}`} data-tip={'Channel height\nDrag to size this channel. Double-click to match the others.'}
+        <div className={`track-controls ${picked.has(stem.id) ? 'is-picked' : ''}`} style={{ paddingLeft: 10 + Math.min(depth, 4) * 12 }} onPointerDown={event => pick(event, stem.id)} onContextMenu={event => context(event, stem)}><div className="row-grip" role="separator" aria-orientation="horizontal" aria-label={`Resize ${stem.label}`} data-tip={'Channel height\nDrag to size this channel. Double-click to match the others.'}
           onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); const track = event.currentTarget.closest('.timeline-track') as HTMLElement, lane = track.querySelector('.waveform-lane') as HTMLElement; rowGrip.current = { y: event.clientY, height: lane.getBoundingClientRect().height, id: stem.id, track }; section.current?.classList.add('is-sizing'); event.currentTarget.setPointerCapture(event.pointerId); }}
           onPointerMove={event => { const grip = rowGrip.current; if (grip) grip.track.style.setProperty('--row', `${clampRow(grip.height + event.clientY - grip.y)}px`); }}
           onPointerUp={event => { const grip = rowGrip.current; rowGrip.current = null; section.current?.classList.remove('is-sizing'); if (!grip) return; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); setRowHeights(previous => ({ ...previous, [grip.id]: clampRow(grip.height + event.clientY - grip.y) })); }}
@@ -608,8 +642,8 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
       <div className="playhead-rail" aria-hidden="true"><i ref={rail as React.RefObject<HTMLElement>}/></div>
       {!tracks.length && !pending && <p className="timeline-loading">{loading ? 'Preparing waveform lanes…' : 'Separate stems to see waveform lanes.'}</p>}
     </div></div>
-    {menu && <div className="timeline-context-menu" role="menu" aria-label={`${menu.stem.label} actions`} style={{ left: menu.x / popupZoom, top: menu.y / popupZoom }}><small>{menu.stem.label}{menuRange ? ` · ${clock(menuRange.start)} → ${clock(menuRange.end)}` : ' · whole channel'}</small><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, menuRange?.start || 0, menuRange?.end || duration, false); setMenu(null); }}><ScanSearch size={14}/> Extract details <span>USS Auto</span></button><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, menuRange?.start || 0, menuRange?.end || duration, true); setMenu(null); }}><Crosshair size={14}/> Extract sound…</button><button role="menuitem" disabled={!duration} onClick={() => { remember(); setEdits(previous => ({ ...previous, [menu.stem.id]: splitEdit(previous[menu.stem.id], menu.at, duration) })); setMenu(null); }}><Scissors size={14}/> Split channel <span>{clock(menu.at)}</span></button><button role="menuitem" onClick={() => { remember(); setEdits(previous => { const next = { ...previous }; delete next[menu.stem.id]; return next; }); setMenu(null); }}>Reset channel edits</button><button role="menuitem" onClick={() => { useAsReference(menu.stem); setMenu(null); }}><Mic size={14}/> Use as GuideSep reference</button><button role="menuitem" disabled={exporting} onClick={() => { save(menu.stem.id); setMenu(null); }}><ArrowDownToLine size={14}/> Download channel</button><button role="menuitem" onClick={() => startRename.current(menu.stem.id)}>Rename or recolor… <span>Ctrl+R</span></button>{(() => { const many = picked.has(menu.stem.id) && picked.size > 1, ids = many ? rows.flatMap(row => row.stem && picked.has(row.stem.id) ? [row.stem.id] : []) : [menu.stem.id]; return <><button role="menuitem" onClick={() => askGroup.current(ids)}><FolderPlus size={14}/> {many ? `Group ${ids.length} channels…` : 'Group channel…'} <span>Ctrl+G</span></button>{groups.some(group => ids.some(id => group.members.includes(id))) && <button role="menuitem" onClick={() => { setGroups(previous => leaveGroups(previous, ids)); setMenu(null); }}>Remove from group</button>}</>; })()}{(() => { const found = clipAt(edits[menu.stem.id], menu.at, duration); return found ? <button role="menuitem" onClick={() => { deleteClip(menu.stem.id, found.id); setMenu(null); }}><Scissors size={14}/> Delete clip <span>Del</span></button> : null; })()}<button role="menuitem" onClick={() => { const many = picked.has(menu.stem.id) && picked.size > 1; askDelete(many ? [...picked] : [menu.stem.id], menu.x, menu.y); setMenu(null); }}><Trash2 size={14}/> {picked.has(menu.stem.id) && picked.size > 1 ? `Delete ${picked.size} channels…` : 'Delete channel…'}</button></div>}
-    {groupMenu && <div className="timeline-context-menu group-menu" role="menu" aria-label={`${groupMenu.group.name} actions`} style={{ left: groupMenu.x / popupZoom, top: groupMenu.y / popupZoom }}><small>{groupMenu.group.name} · {groupMenu.group.members.length} channels</small><button role="menuitem" onClick={() => { setGroupAsk({ id: groupMenu.group.id, name: groupMenu.group.name, color: groupMenu.group.color ?? null }); setGroupMenu(null); }}>Rename or recolor…</button><div className="swatches" role="group" aria-label="Group color">{GROUP_COLORS.map(hex => <button key={hex} className={`swatch ${groupMenu.group.color === hex ? 'is-active' : ''}`} style={{ background: hex }} aria-label={`Color ${hex}`} aria-pressed={groupMenu.group.color === hex} onClick={() => { setGroups(previous => recolorGroup(previous, groupMenu.group.id, hex)); setGroupMenu(null); }}/>)}<button className={`swatch swatch-auto ${!groupMenu.group.color ? 'is-active' : ''}`} aria-label="Automatic color" data-tip={'Automatic\nUse the color of the first channel.'} onClick={() => { setGroups(previous => recolorGroup(previous, groupMenu.group.id, null)); setGroupMenu(null); }}>A</button></div><button role="menuitem" onClick={() => { setGroups(previous => ungroup(previous, groupMenu.group.id)); setGroupMenu(null); }}>Ungroup <span>keeps the channels</span></button></div>}
+    {menu && <div className="timeline-context-menu" role="menu" aria-label={`${menu.stem.label} actions`} style={{ left: menu.x / popupZoom, top: menu.y / popupZoom }}><small>{menu.stem.label}{menuRange ? ` · ${clock(menuRange.start)} → ${clock(menuRange.end)}` : ' · whole channel'}</small><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, menuRange?.start || 0, menuRange?.end || duration, false); setMenu(null); }}><ScanSearch size={14}/> Extract details <span>USS Auto</span></button><button role="menuitem" disabled={!duration || detailBusy || !detailAvailable} onClick={() => { details(menu.stem, menuRange?.start || 0, menuRange?.end || duration, true); setMenu(null); }}><Crosshair size={14}/> Extract sound…</button><button role="menuitem" disabled={!duration} onClick={() => { remember(); setEdits(previous => ({ ...previous, [menu.stem.id]: splitEdit(previous[menu.stem.id], menu.at, duration) })); setMenu(null); }}><Scissors size={14}/> Split channel <span>{clock(menu.at)}</span></button><button role="menuitem" onClick={() => { remember(); setEdits(previous => { const next = { ...previous }; delete next[menu.stem.id]; return next; }); setMenu(null); }}>Reset channel edits</button><button role="menuitem" onClick={() => { useAsReference(menu.stem); setMenu(null); }}><Mic size={14}/> Use as GuideSep reference</button>{groups.filter(group => group.members.includes(menu.stem.id)).map(group => <button key={group.id} role="menuitem" onClick={() => { remember(); setGroups(previous => ungroup(previous, group.id)); setMenu(null); }}><Folder size={14}/> Ungroup {group.name}</button>)}{stems.some(stem => stem.parentId === menu.stem.id) && <button role="menuitem" onClick={() => { remember(); detachDetails(menu.stem.id); setMenu(null); }}><Folder size={14}/> Ungroup details <span>keeps channels</span></button>}<button role="menuitem" disabled={exporting} onClick={() => { save(menu.stem.id); setMenu(null); }}><ArrowDownToLine size={14}/> Download channel</button><button role="menuitem" onClick={() => startRename.current(menu.stem.id)}>Rename or recolor… <span>Ctrl+R</span></button>{(() => { const many = picked.has(menu.stem.id) && picked.size > 1, ids = many ? rows.flatMap(row => row.stem && picked.has(row.stem.id) ? [row.stem.id] : []) : [menu.stem.id]; return <><button role="menuitem" onClick={() => askGroup.current(ids)}><FolderPlus size={14}/> {many ? `Group ${ids.length} channels…` : 'Group channel…'} <span>Ctrl+G</span></button>{groups.some(group => ids.some(id => group.members.includes(id))) && <button role="menuitem" onClick={() => { remember(); setGroups(previous => leaveGroups(previous, ids)); setMenu(null); }}>Remove from group</button>}</>; })()}{(() => { const found = clipAt(edits[menu.stem.id], menu.at, duration); return found ? <button role="menuitem" onClick={() => { deleteClip(menu.stem.id, found.id); setMenu(null); }}><Scissors size={14}/> Delete clip <span>Del</span></button> : null; })()}<button role="menuitem" onClick={() => { const many = picked.has(menu.stem.id) && picked.size > 1; askDelete(many ? [...picked] : [menu.stem.id], menu.x, menu.y); setMenu(null); }}><Trash2 size={14}/> {picked.has(menu.stem.id) && picked.size > 1 ? `Delete ${picked.size} channels…` : 'Delete channel…'}</button></div>}
+    {groupMenu && <div className="timeline-context-menu group-menu" role="menu" aria-label={`${groupMenu.group.name} actions`} style={{ left: groupMenu.x / popupZoom, top: groupMenu.y / popupZoom }}><small>{groupMenu.group.name} · {groupMenu.group.members.length} channels</small><button role="menuitem" onClick={() => { setGroupAsk({ id: groupMenu.group.id, name: groupMenu.group.name, color: groupMenu.group.color ?? null }); setGroupMenu(null); }}>Rename or recolor…</button><div className="swatches" role="group" aria-label="Group color">{GROUP_COLORS.map(hex => <button key={hex} className={`swatch ${groupMenu.group.color === hex ? 'is-active' : ''}`} style={{ background: hex }} aria-label={`Color ${hex}`} aria-pressed={groupMenu.group.color === hex} onClick={() => { remember(); setGroups(previous => recolorGroup(previous, groupMenu.group.id, hex)); setGroupMenu(null); }}/>)}<button className={`swatch swatch-auto ${!groupMenu.group.color ? 'is-active' : ''}`} aria-label="Automatic color" data-tip={'Automatic\nUse the color of the first channel.'} onClick={() => { remember(); setGroups(previous => recolorGroup(previous, groupMenu.group.id, null)); setGroupMenu(null); }}>A</button></div><button role="menuitem" onClick={() => { remember(); setGroups(previous => ungroup(previous, groupMenu.group.id)); setGroupMenu(null); }}>Ungroup <span>keeps the channels</span></button></div>}
     {groupAsk && <div className="modal-backdrop" onClick={event => { if (event.target === event.currentTarget) setGroupAsk(null); }}>
       <section className="connection-modal mini-modal group-modal" role="dialog" aria-modal="true" aria-label={groupAsk.stem ? 'Edit channel' : groupAsk.id ? 'Edit group' : 'New group'} onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); setGroupAsk(null); } }}>
         <header><span className="mini-title"><FolderPlus size={15}/><strong>{groupAsk.stem ? 'Rename or recolor channel' : groupAsk.id ? 'Edit group' : `Group ${groupAsk.ids?.length} channel${groupAsk.ids?.length === 1 ? '' : 's'}`}</strong></span><button className="icon-button" onClick={() => setGroupAsk(null)} aria-label="Close"><X size={15}/></button></header>
@@ -623,6 +657,6 @@ export function StemTimeline({ backdrop, pending, renameChannel, deleteChannels,
     </div>}
     {mixOpen && <MixExportModal items={tracks.filter(track => track.buffer).map(track => ({ id: track.stem.id, label: track.stem.label, buffer: track.buffer! }))} mix={mix} edits={edits} duration={duration} name={sourceName} close={() => setMixOpen(false)} exportFile={exportMixFile}/>}
     {takeMenu && <div className="timeline-context-menu take-menu" role="menu" aria-label="Take actions" style={{ left: takeMenu.x / popupZoom, top: takeMenu.y / popupZoom }}><button role="menuitem" onClick={() => { closeTake(takeMenu.id); setTakeMenu(null); }}><X size={14}/> Close take</button><button role="menuitem" disabled={takes.length < 2} onClick={() => { closeTake(takeMenu.id, true); setTakeMenu(null); }}>Close other takes</button></div>}
-    {deleteAsk && <div className="timeline-context-menu delete-confirm" role="alertdialog" aria-label="Delete channels" style={{ left: deleteAsk.x / popupZoom, top: deleteAsk.y / popupZoom }}>{(() => { const all = deleteFamily(deleteAsk.ids), extra = all.length - deleteAsk.ids.length, first = stems.find(stem => stem.id === deleteAsk.ids[0]); return <><small>{deleteAsk.ids.length === 1 ? `Delete "${first?.label}"` : `Delete ${deleteAsk.ids.length} channels`}{extra > 0 ? ` and ${extra} detail channel${extra > 1 ? 's' : ''}` : ''}?</small><p>The audio stays on disk. {all.length > 1 ? 'These channels leave' : 'The channel leaves'} this take and cannot be restored here.</p><div><button className="secondary-button" onClick={() => setDeleteAsk(null)}>Cancel</button><button className="primary-button" onClick={() => { deleteChannels(all); setPicked(new Set()); setDeleteAsk(null); }}>Delete</button></div></>; })()}</div>}
+    {deleteAsk && <div className="timeline-context-menu delete-confirm" role="alertdialog" aria-label="Delete channels" style={{ left: deleteAsk.x / popupZoom, top: deleteAsk.y / popupZoom }}>{(() => { const all = deleteFamily(deleteAsk.ids), extra = all.length - deleteAsk.ids.length, first = stems.find(stem => stem.id === deleteAsk.ids[0]); return <><small>{deleteAsk.ids.length === 1 ? `Delete "${first?.label}"` : `Delete ${deleteAsk.ids.length} channels`}{extra > 0 ? ` and ${extra} detail channel${extra > 1 ? 's' : ''}` : ''}?</small><p>The audio stays on disk. {all.length > 1 ? 'These channels leave' : 'The channel leaves'} this take. Use Ctrl+Z to restore them.</p><div><button className="secondary-button" onClick={() => setDeleteAsk(null)}>Cancel</button><button className="primary-button" onClick={() => { remember(); deleteChannels(all); setPicked(new Set()); setDeleteAsk(null); }}>Delete</button></div></>; })()}</div>}
   </section>;
 }

@@ -377,7 +377,7 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 /* Toolbar buttons: the highlight of a selected tool sits evenly inside its frame */
 .toolbar-bank:not(.export-bank){padding:2px}
 .toolbar-bank .icon-button{width:23px;height:23px}
-.pick-bank output{color:var(--yellow);font-size:10px}
+.pick-bank .selection-trash{position:relative;overflow:visible}.selection-count-badge{position:absolute;right:-5px;top:-5px;min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border-radius:999px;background:var(--yellow);color:var(--ink);font:8px/1 Consolas,monospace;font-weight:700;pointer-events:none;border:1px solid var(--ink)}
 
 /* Channel selection, level knob, meter, compact fold arrow */
 .track-controls{user-select:none}
@@ -487,7 +487,7 @@ body{min-width:0}.layout-zoom{display:flex;align-items:center;gap:3px;border:1px
 .pack-status>span{flex:1;min-width:0;overflow-wrap:anywhere}
 .settings-modal footer{align-items:center}
 
-.all-muted{padding:2px 9px;border:1px solid #f2ff5966;border-radius:999px;background:#f2ff5914;color:var(--yellow);font:9px Consolas,monospace;letter-spacing:.4px}
+.mute-warning-bank .all-muted{padding:0;background:#f2ff5914;color:var(--yellow)}
 .all-muted:hover{background:#f2ff5926}
 
 
@@ -604,3 +604,42 @@ html,body,#root{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrol
 .detail-tabs button small{font-size:9px;color:var(--dim)}
 .detail-tabs button.is-selected{background:var(--wash);color:var(--yellow);box-shadow:inset 0 0 0 1px #f2ff5933}
 .detail-note{margin:14px 0 0;line-height:1.6}
+
+/* Compact project browser: the active record is a quiet lime rail, with file paths on hover only. */
+.projects-modal{width:min(580px,calc(100vw - 36px));padding:20px;overflow:hidden;display:flex;flex-direction:column;max-height:min(680px,calc(100vh - 36px))}
+.projects-modal .modal-top{flex:0 0 auto;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.projects-heading{display:flex;align-items:center;gap:10px;color:var(--yellow)}
+.projects-modal .projects-heading h2{margin:0;font-size:18px;line-height:1.2;letter-spacing:-.35px;font-weight:600;color:var(--text)}
+.project-section-label{font:600 9px Consolas,monospace;letter-spacing:1.5px;color:var(--dim)}
+.projects-modal .project-current{display:block;margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:7px;background:var(--wash)}
+.project-name-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.projects-modal .project-name-row input{height:34px;min-width:0;padding:7px 10px;font-size:11px;background:var(--ink)}
+.projects-modal .project-name-row button{height:34px;min-height:34px;border-radius:5px}
+.projects-modal .project-actions{margin:12px 0 15px;gap:6px}
+.projects-modal .project-actions button{height:31px;padding:6px 9px;border-radius:5px;font-size:10px}
+.project-list-heading{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+.project-list-heading small{color:var(--dim);font:9px Consolas,monospace}
+.projects-modal .project-recent{max-height:none;min-height:72px;flex:1 1 auto;overflow-y:auto;border:1px solid var(--border);border-radius:7px;scrollbar-width:thin;scrollbar-color:#77717d transparent}
+.project-row{display:flex;align-items:center;gap:9px;min-height:45px;padding:3px 8px 3px 0;border-bottom:1px solid var(--border);position:relative}
+.project-row:last-child{border-bottom:0}
+.project-row:hover{background:var(--wash)}
+.project-row.is-current{background:rgba(242,255,89,.065)}
+.project-row.is-current:before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--yellow)}
+.project-row .project-open{min-width:0;flex:1;justify-content:flex-start;text-align:left;border:0;background:none;color:var(--text);padding:11px 12px;font-size:11px;gap:10px}
+.project-row .project-open strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}
+.project-row .project-open:disabled{opacity:1;cursor:default}
+.project-row .project-open-badge{font:600 8px Consolas,monospace;letter-spacing:1px;color:var(--yellow);margin-left:auto}
+.project-row time{white-space:nowrap;font-size:9px;color:var(--dim)}
+.project-row .project-trash{flex:0 0 28px;color:var(--dim)}
+.project-row .project-trash:hover:not(:disabled){color:#ffb0aa;background:#ffb0aa14}
+.project-empty{padding:22px;color:var(--dim);font-size:11px;text-align:center}
+.project-delete-confirm{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px;border:1px solid #ffb0aa55;border-radius:7px;background:#ffb0aa0a}
+.project-delete-confirm span{min-width:0;flex:1}
+.project-delete-confirm strong,.project-delete-confirm small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-delete-confirm strong{font-size:11px;font-weight:600}
+.project-delete-confirm small{font-size:9px;color:var(--muted);margin-top:3px}
+.project-delete-confirm button{height:30px;min-height:30px;border-radius:5px;padding:5px 9px;font-size:10px;white-space:nowrap}
+.project-delete-commit{background:#ffb0aa;color:var(--ink);border:0;font-weight:650}
+.projects-modal .modal-actions{flex:0 0 auto;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.projects-modal .modal-actions>.subtle{font-size:9px}
+.projects-modal .primary-button{min-height:31px;padding:6px 11px;border-radius:6px;font-size:10px}

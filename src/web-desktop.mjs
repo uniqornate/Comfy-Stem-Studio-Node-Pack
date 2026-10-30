@@ -17,6 +17,15 @@ const uuid = () => globalThis.crypto.randomUUID();
 const slug = value => String(value || 'target').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || 'target';
 const nameOf = value => String(value || 'Untitled project').replace(/[\x00-\x1f]/g, '').trim().slice(0, 100) || 'Untitled project';
 const TERMINAL = ['idle', 'complete', 'failed', 'cancelled'];
+const SAFE_UPLOAD = 96 * 1024 * 1024;
+function audioWindows(duration, bytes) {
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(bytes) || bytes <= 0) throw Error('Could not measure the source audio.');
+  if (bytes <= SAFE_UPLOAD) return [{ start: 0, end: duration }];
+  const seconds = Math.max(1, Math.min(180, Math.ceil(duration / Math.ceil(bytes / (SAFE_UPLOAD * 0.8)))));
+  const windows = [];
+  for (let start = 0; start < duration; start += seconds) windows.push({ start, end: Math.min(duration, start + seconds) });
+  return windows;
+}
 
 // A reference is how ComfyUI names a file: {type: 'input' | 'output', subfolder, filename}.
 export function validRef(ref) {
@@ -90,7 +99,31 @@ export function createWebDesktop(env = {}) {
   }
   async function stage(file, folder) {
     const safe = (file.name || 'media').replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'media';
+    if (file.size > SAFE_UPLOAD) {
+      const init = await json('/stemstudio/media/init', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: file.name, size: file.size }) }, 'Stem Studio media transfer');
+      try {
+        const chunkBytes = Math.min(init.chunkBytes || 8 * 1024 * 1024, 8 * 1024 * 1024);
+        for (let start = 0, index = 0; start < file.size; start += chunkBytes, index++)
+          await json(`/stemstudio/media/${init.token}/${index}`, { method: 'PUT', body: file.slice(start, Math.min(file.size, start + chunkBytes)) }, 'Stem Studio media transfer');
+        const stored = await json(`/stemstudio/media/${init.token}/complete`, { method: 'POST' }, 'Stem Studio media transfer');
+        const ref = { type: 'input', subfolder: stored.subfolder, filename: stored.name };
+        if (!validRef(ref)) throw Error('ComfyUI returned an unexpected media name.');
+        return ref;
+      } catch (error) {
+        await fetchImpl(api(`/stemstudio/media/${init.token}`), { method: 'DELETE' }).catch(() => {});
+        throw error;
+      }
+    }
     return upload(file, `StemStudio/${folder}`, `${uuid().slice(0, 8)}-${safe}.${extensionOf(file.name)}`);
+  }
+  const preparedAudio = new Map();
+  async function sourceAudio(ref) {
+    const key = annotate(ref);
+    if (preparedAudio.has(key)) return preparedAudio.get(key);
+    const result = await post('/stemstudio/audio/prepare', { audio: key }, 'Stem Studio audio preparation');
+    if (typeof result.audio !== 'string' || !Number.isFinite(result.size) || result.size <= 0) throw Error('ComfyUI did not prepare a valid audio input.');
+    preparedAudio.set(key, result);
+    return result;
   }
   async function exists(ref) { try { return (await fetchImpl(viewUrl(base, ref), { method: 'HEAD' })).ok; } catch { return false; } }
   async function fileSize(ref) {
@@ -172,7 +205,10 @@ export function createWebDesktop(env = {}) {
     let count = 0;
     for (const run of doc.runs) {
       if (!ID.test(run.runId) || typeof run.model !== 'string' || !Array.isArray(run.stems)) throw Error('Invalid project take.');
-      for (const stem of run.stems) if (++count > 8192 || typeof stem.label !== 'string' || !Number.isFinite(stem.size) || !ID.test(stem.id) || !validRef(stem.native)) throw Error('Invalid project channel.');
+      for (const stem of run.stems) {
+        if (++count > 8192 || typeof stem.label !== 'string' || !Number.isFinite(stem.size) || !ID.test(stem.id) || !validRef(stem.native)) throw Error('Invalid project channel.');
+        if (stem.start !== undefined && (!Number.isFinite(stem.start) || !Number.isFinite(stem.end) || stem.start < 0 || stem.end <= stem.start || stem.end > 864000 || typeof stem.channelKey !== 'string')) throw Error('Invalid project audio interval.');
+      }
     }
     if (doc.source && (typeof doc.source.name !== 'string' || !validRef(doc.source.native))) throw Error('Invalid source reference.');
     return doc;
@@ -180,7 +216,8 @@ export function createWebDesktop(env = {}) {
   function cleanView(value = {}) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid project workspace.');
     const result = {};
-    for (const key of ['selectedRun', 'model', 'activeOperation', 'target', 'detailMode', 'samVariant', 'lastGuidance', 'detailRequest', 'layoutZoom', 'workspaceShare', 'timelineExpanded', 'floatPosition', 'floatSize', 'exportMode', 'transport', 'timelines']) if (value[key] !== undefined) result[key] = value[key];
+    for (const key of ['selectedRun', 'hiddenStemIds', 'model', 'activeOperation', 'target', 'detailMode', 'samVariant', 'lastGuidance', 'detailRequest', 'layoutZoom', 'workspaceShare', 'timelineExpanded', 'floatPosition', 'floatSize', 'exportMode', 'transport', 'timelines']) if (value[key] !== undefined) result[key] = value[key];
+    if (result.hiddenStemIds !== undefined && (!Array.isArray(result.hiddenStemIds) || result.hiddenStemIds.length > 8192 || !result.hiddenStemIds.every(id => typeof id === 'string' && ID.test(id)))) throw Error('Invalid hidden channels.');
     if (JSON.stringify(result).length > 2 * 1024 * 1024) throw Error('Workspace settings are too large.');
     if (result.detailRequest) result.detailRequest = { stem: { id: result.detailRequest.stem.id }, start: result.detailRequest.start, end: result.detailRequest.end };
     return JSON.parse(JSON.stringify(result));
@@ -225,7 +262,7 @@ export function createWebDesktop(env = {}) {
       for (const stem of run.stems) {
         const ok = await exists(stem.native);
         if (ok) outputs.set(stem.id, { ref: stem.native, name: `${stem.label.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100)}-${stem.id.slice(0, 8)}.flac` });
-        stems.push({ id: stem.id, label: stem.label, size: stem.size, ...(stem.parentId ? { parentId: stem.parentId } : {}), ...(stem.kind === 'brush' ? { kind: 'brush' } : {}), url: ok ? viewUrl(base, stem.native) : '', missing: !ok });
+        stems.push({ id: stem.id, label: stem.label, size: stem.size, ...(Number.isFinite(stem.start) && Number.isFinite(stem.end) ? { start: stem.start, end: stem.end, channelKey: stem.channelKey } : {}), ...(stem.parentId ? { parentId: stem.parentId } : {}), ...(stem.kind === 'brush' ? { kind: 'brush' } : {}), url: ok ? viewUrl(base, stem.native) : '', missing: !ok });
         if (!ok) warnings.push(`Missing channel: ${stem.label}`);
       }
       runs.push({ ...run, stems });
@@ -255,12 +292,13 @@ export function createWebDesktop(env = {}) {
 
   async function save(payload = {}) {
     if (!current || payload.projectId !== current.id) throw Error('The active project changed.');
-    const runs = (Array.isArray(payload.runs) ? payload.runs : []).map(run => ({ ...run, stems: [...run.stems] }));
-    if (state.phase === 'complete' && state.runId) {
-      if (state.rootRunId) { const root = runs.find(run => run.runId === state.rootRunId); if (root) root.stems.push(...state.stems.filter(stem => !root.stems.some(other => other.id === stem.id))); }
-      else if (!runs.some(run => run.runId === state.runId)) runs.push(state);
-    }
     const view = cleanView(payload.view);
+    const hidden = new Set(view.hiddenStemIds || []);
+    const runs = (Array.isArray(payload.runs) ? payload.runs : []).map(run => ({ ...run, stems: [...run.stems] }));
+    if (state.runId && state.stems.length) {
+      if (state.rootRunId) { const root = runs.find(run => run.runId === state.rootRunId); if (root) root.stems.push(...state.stems.filter(stem => !hidden.has(stem.id) && !root.stems.some(other => other.id === stem.id))); }
+      else if (!runs.some(run => run.runId === state.runId) && state.stems.some(stem => !hidden.has(stem.id))) runs.push({ ...state, stems: state.stems.filter(stem => !hidden.has(stem.id)) });
+    }
     const input = JSON.stringify({ runs, view, phase: state.phase });
     if (input === lastInput) return info();
     const known = new Map(current.runs.flatMap(run => run.stems).map(stem => [stem.id, stem]));
@@ -269,7 +307,7 @@ export function createWebDesktop(env = {}) {
       const existing = known.get(stem.id); const output = outputs.get(stem.id);
       if (!existing && !output) throw Error(`Channel is unavailable: ${stem.label}`);
       const label = String(stem.label).slice(0, 160) || 'Channel';
-      return existing ? { ...existing, label } : { id: stem.id, label, size: stem.size, native: output.ref, ...(stem.parentId ? { parentId: stem.parentId } : {}), ...(stem.kind === 'brush' ? { kind: 'brush' } : {}) };
+      return existing ? { ...existing, label } : { id: stem.id, label, size: stem.size, native: output.ref, ...(Number.isFinite(stem.start) && Number.isFinite(stem.end) ? { start: stem.start, end: stem.end, channelKey: stem.channelKey } : {}), ...(stem.parentId ? { parentId: stem.parentId } : {}), ...(stem.kind === 'brush' ? { kind: 'brush' } : {}) };
     }) }));
     const next = validateProject({ ...current, updatedAt: new Date().toISOString(), runs: durable, view });
     await writeProject(next); current = next; lastInput = input; return info();
@@ -350,6 +388,16 @@ export function createWebDesktop(env = {}) {
           const id = String(argument || '').replace(/^stemstudio\/projects\//, '').replace(/\.json$/, '');
           current = await readProject(id); lastInput = ''; remember('stemstudio.lastProject', id); return hydrate();
         }
+        if (action === 'delete') {
+          const item = (await listProjects()).find(entry => entry.path === argument);
+          if (!item) throw Error('Choose a project from the list.');
+          const target = await readProject(item.id);
+          if (target.id !== item.id) throw Error('The project record no longer matches this list entry.');
+          const wasCurrent = current.id === item.id;
+          const next = wasCurrent ? await create('Untitled project') : null;
+          await request(`/userdata/${projectKey(item.id)}`, { method: 'DELETE' }, 'ComfyUI user data');
+          return next;
+        }
         if (action === 'open') {
           const file = await pick('.json', ['json']); if (!file) return null;
           if (file.size > 8 * 1024 * 1024) throw Error('Project file is too large.');
@@ -404,7 +452,7 @@ export function createWebDesktop(env = {}) {
       const prefix = `StemStudio/${current.id}/${uuid()}`;
       const request_ = { ...options, outputPrefix: prefix };
       delete request_.referenceUrl; delete request_.videoUrl;
-      const graph = stemWorkflow(request_);
+      stemWorkflow(request_);
       if (!batchActive && state.phase === 'complete' && state.runId && state.runId !== delivered && !missed.some(item => item.runId === state.runId)) missed = [...missed, structuredClone(state)].slice(-12);
       active = true; cancelled = false; activeJob = null;
       state = { phase: 'checking', message: 'Checking audio workflow…', stems: [], canCancel: false };
@@ -413,16 +461,26 @@ export function createWebDesktop(env = {}) {
         const status = await engineStatus(profile, fetchImpl);
         if (!status.ready) throw Error(status.message);
         checkRequest(status, request_, { reference: !!reference, video: !!video, nodePack: true });
-        graph['1'].inputs.audio = annotate(source);
+        state.phase = 'preparing'; state.message = 'Preparing the soundtrack from the source media…';
+        const prepared = await sourceAudio(source);
+        const windows = audioWindows(prepared.duration, prepared.size);
+        const chunked = windows.length > 1;
+        if (chunked && !status.chunkAudio) throw Error('Long-audio processing needs the updated Stem Studio node pack. Restart ComfyUI after updating it.');
+        const runId = uuid(), allStems = [];
+        for (let part = 0; part < windows.length; part++) {
+        if (cancelled) { state.phase = 'cancelled'; state.message = 'Separation cancelled.'; return; }
+        const chunkRange = chunked ? windows[part] : undefined;
+        const graph = stemWorkflow({ ...request_, ...(chunkRange ? { chunkRange, outputPrefix: `${prefix}-${part}` } : {}) });
+        graph['1'].inputs[chunkRange ? 'file' : 'audio'] = prepared.audio;
         if (reference) graph['8'].inputs.audio = annotate(reference);
         if (video) graph['6'].inputs.file = annotate(video);
-        state.phase = 'uploading'; state.progress = 0.03; state.message = 'Queueing the job in this ComfyUI…';
+        state.phase = 'uploading'; state.progress = part / windows.length; state.message = chunked ? `Processing audio section ${part + 1} of ${windows.length}…` : 'Queueing the job in this ComfyUI…';
         const result = await runPrompt(graph, {
           isCancelled: () => cancelled,
-          onProgress: value => { state.progress = 0.05 + 0.9 * value; state.eta = value > 0.12 ? Math.round((Date.now() - startedAt) / 1000 * (1 - value) / value) : null; },
+          onProgress: value => { state.progress = chunked ? (part + value) / windows.length : 0.05 + 0.9 * value; state.eta = value > 0.12 ? Math.round((Date.now() - startedAt) / 1000 * (1 - state.progress) / Math.max(0.01, state.progress)) : null; },
           onState: patch => { if (patch.promptId) { activeJob = patch.promptId; state.canCancel = true; } if (patch.phase) { state.phase = patch.phase; state.message = `ComfyUI job: ${patch.phase}.`; } },
         });
-        state.canCancel = false;
+        state.canCancel = true;
         if (result.cancelled) { state.phase = 'cancelled'; state.message = 'Separation cancelled.'; return; }
         const label = options.target;
         const channels = options.mode === 'music' ? MUSIC_CHANNELS : options.mode === 'brush' ? [{ key: slug(label), label: String(label).slice(0, 60), node: '10' }] : ['uss', 'sam', 'guidesep'].includes(options.mode) ? [{ key: slug(label), label, node: '10' }, { key: 'remainder', label: 'Remainder', node: '11' }] : CHANNELS;
@@ -445,10 +503,12 @@ export function createWebDesktop(env = {}) {
           if (!validRef(ref)) throw Error(`ComfyUI returned an unexpected output name for ${channel.label}.`);
           const size = await fileSize(ref); if (!size) throw Error(`${channel.label} output was empty or missing.`);
           const id = uuid();
-          outputs.set(id, { ref, name: options.parentId ? `${options.parentId.slice(0, 8)}-${channel.key}-${id.slice(0, 6)}.flac` : `${channel.key}.flac` });
-          stems.push({ id, label: channel.label, size, url: viewUrl(base, ref), ...(options.parentId ? { parentId: options.parentId } : {}), ...(options.mode === 'brush' ? { kind: 'brush' } : {}) });
+          outputs.set(id, { ref, name: options.parentId ? `${options.parentId.slice(0, 8)}-${channel.key}-${id.slice(0, 6)}.flac` : chunked ? `${channel.key}-${String(part + 1).padStart(3, '0')}.flac` : `${channel.key}.flac` });
+          stems.push({ id, label: chunked ? `${channel.label} · ${part + 1}/${windows.length}` : channel.label, size, url: viewUrl(base, ref), ...(chunkRange ? { start: chunkRange.start, end: chunkRange.end, channelKey: channel.key } : {}), ...(options.parentId ? { parentId: options.parentId } : {}), ...(options.mode === 'brush' ? { kind: 'brush' } : {}) });
         }
-        state = { phase: 'complete', message: `${selected.length} channels ready. Preview or save each channel, or download all.`, stems, canCancel: false, runId: uuid(), parentId: options.parentId, rootRunId: options.rootRunId, model: ['uss', 'sam'].includes(options.mode) ? `${options.mode.toUpperCase()} · ${options.target}` : options.mode === 'guidesep' ? `GuideSep · ${options.target}` : options.mode === 'brush' ? `Brush · ${String(options.target).slice(0, 40)}` : options.mode === 'music' ? 'Music · 6 stems' : options.model || 'mrx' };
+        allStems.push(...stems);
+        state = { phase: part + 1 === windows.length ? 'complete' : 'running', message: chunked ? `Audio section ${part + 1}/${windows.length} ready.` : `${selected.length} channels ready. Preview or save each channel, or download all.`, progress: (part + 1) / windows.length, stems: [...allStems], canCancel: part + 1 < windows.length, runId, parentId: options.parentId, rootRunId: options.rootRunId, model: ['uss', 'sam'].includes(options.mode) ? `${options.mode.toUpperCase()} · ${options.target}` : options.mode === 'guidesep' ? `GuideSep · ${options.target}` : options.mode === 'brush' ? `Brush · ${String(options.target).slice(0, 40)}` : options.mode === 'music' ? 'Music · 6 stems' : options.model || 'mrx' };
+        }
       };
       void run().catch(error => { state = { ...state, phase: 'failed', message: error.message, canCancel: false }; }).finally(() => { active = false; activeJob = null; state.canCancel = false; });
       return structuredClone(state);

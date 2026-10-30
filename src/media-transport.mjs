@@ -61,7 +61,14 @@ export class MediaTransport {
     this.emit();
   }
   // Replaces the channel list while keeping the context, e.g. after a channel's audio was decoded late.
-  setTracks(tracks) { this.tracks = tracks; if (this.video && !this.video.paused) this.alignAudio(); }
+  setTracks(tracks) {
+    this.tracks = tracks;
+    if (!tracks.length) { this.stopAudio(); this.mode = 'original'; }
+    else if (this.mode === 'original') this.mode = 'stems';
+    if (this.video) this.video.muted = this.mode === 'stems';
+    if (this.video && !this.video.paused) this.alignAudio();
+    this.emit();
+  }
   setMix(mix) {
     this.mix = mix;
     const anySolo = Object.values(mix).some(value => value.solo);
@@ -121,7 +128,7 @@ export class MediaTransport {
     this.anchor = { at, offset, rate };
     const anySolo = Object.values(this.mix).some(value => value.solo);
     for (const { stem, buffer } of this.tracks) {
-      if (!buffer || offset >= buffer.duration) continue;
+      if (!buffer || (!this.edits?.[stem.id] && offset >= buffer.duration)) continue;
       const gain = ctx.createGain(); const state = this.mix[stem.id];
       gain.gain.value = state && !state.mute && (!anySolo || state.solo) ? state.level : 0;
       this.gains.set(stem.id, gain); this.wire(stem.id, gain, state?.pan || 0);
@@ -131,7 +138,7 @@ export class MediaTransport {
         if (this.loopLocked && this.selection) source.start(at, offset, Math.max(0, this.selection.end - offset)); else source.start(at, offset);
         this.sources.push(source); continue;
       }
-      for (const segment of audibleSegments(this.edits[stem.id], buffer.duration, offset, this.loopLocked && this.selection ? this.selection.end : buffer.duration)) {
+      for (const segment of audibleSegments(this.edits[stem.id], video.duration || buffer.duration, offset, this.loopLocked && this.selection ? this.selection.end : video.duration || buffer.duration)) {
         const source = ctx.createBufferSource(), envelope = ctx.createGain(); source.buffer = buffer; source.playbackRate.value = rate;
         envelope.gain.value = segment.gain; source.connect(envelope); envelope.connect(gain);
         source.onended = () => envelope.disconnect();

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ROW_DEFAULT, ROW_MAX, ROW_MIN, clampRow, knobFromRow, rowFromKnob } from '../src/row-height.mjs';
-import { channelFamily, removeChannels } from '../src/channels.mjs';
+import { channelFamily, removeChannels, ungroupDetails } from '../src/channels.mjs';
 
 test('row heights stay within limits and the knob scale round-trips', () => {
   assert.equal(clampRow(10), ROW_MIN); assert.equal(clampRow(9999), ROW_MAX); assert.equal(clampRow(NaN), ROW_DEFAULT); assert.equal(clampRow(100.4), 100);
@@ -20,4 +20,13 @@ test('removing channels keeps the other takes, and an emptied take disappears', 
   const emptied = removeChannels(runs, 'two', ['c', 'zzz']);
   assert.deepEqual(emptied.runs.map(run => run.runId), ['one']); assert.equal(emptied.takeRemoved, true);
   assert.equal(removeChannels(runs, 'one', []).runs.length, 2); assert.equal(runs[0].stems.length, 2);
+});
+
+test('ungrouping an extracted parent detaches direct children while keeping nested detail families', () => {
+  const runs = [{ runId: 'one', stems: [{ id: 'a' }, { id: 'b', parentId: 'a' }, { id: 'c', parentId: 'b' }] }];
+  const detached = ungroupDetails(runs, 'one', 'a');
+  assert.deepEqual(detached[0].stems, [{ id: 'a' }, { id: 'b' }, { id: 'c', parentId: 'b' }]);
+  assert.deepEqual(channelFamily(detached[0].stems, 'a'), ['a']);
+  assert.deepEqual(channelFamily(detached[0].stems, 'b'), ['b', 'c']);
+  assert.equal(runs[0].stems[1].parentId, 'a');
 });

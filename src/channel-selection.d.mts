@@ -1,0 +1,1 @@
+export function pickChannelSelection(order: string[], selected: ReadonlySet<string>, anchor: string, id: string, modifiers?: { shift?: boolean; toggle?: boolean }): { selected: Set<string>; anchor: string };

@@ -11,6 +11,8 @@ There is also a Windows desktop app with the same workspace: [Comfy-Stem-Studio]
 - **Brush**: drag over a region of the timeline and paint a sound into a new channel with Stable Audio 3 Small-SFX or Medium, or with MMAudio so the sound follows the picture.
 - A waveform **timeline**: mute, solo, level knobs and meters, non-destructive clip trim, split, move, copy, gain regions, undo and redo, loop ranges, multi-channel delete, takes to compare models, shortcut list on `?`.
 - **Exports**: current mix to WAV or FLAC, lossless MKV with the new audio through ComfyUI's native SaveVideo, single or all stems, and **batch** processing of many files.
+- **Long videos**: keep the video for preview, transfer only its original audio for separation, and process audio above the 96 MiB upload threshold in sequential sections. Completed sections appear at their source time on the timeline as they finish.
+- **Projects**: autosave and resume the last workspace, reopen or rename saved projects, and relink source media when needed. Project records and timeline edits live under ComfyUI's native user and output directories.
 - Ready-made ComfyUI workflows for the nodes without the UI: [`workflows/`](workflows/README.md).
 
 ## Install

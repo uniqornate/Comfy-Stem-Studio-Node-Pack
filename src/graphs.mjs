@@ -48,6 +48,12 @@ export function stemWorkflow(options = {}) {
     for (const node of Object.values(graph)) if (node.class_type === 'SaveAudio') node.inputs.filename_prefix = `${options.outputPrefix}/${node.inputs.filename_prefix.split('/').at(-1)}`;
     if (options.mode === 'uss' && options.target === 'All') graph['2'].inputs.filename_prefix = options.outputPrefix;
   }
+  if (options.chunkRange) {
+    const { start, end } = options.chunkRange;
+    if (options.range || options.edits || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > 864000) throw Error('Invalid audio chunk.');
+    graph['1'] = { class_type: 'StemStudioLoadAudioRange', inputs: { file: '', start_seconds: start, end_seconds: end } };
+    return graph;
+  }
   if (options.edits) {
     channelEdit(options.edits,864000);
     graph['7'] = { class_type:'StemStudioEditAudio',inputs:{ audio:['1',0],edits_json:JSON.stringify(options.edits) } };
